@@ -92,10 +92,12 @@ exports.chamarProxima = () => {
                 WHERE id = ?
             `;
 
-            db.query(update, [senha.id], (err) => {
-                if (err) return reject(err);
+                db.query(update, [senha.id], (err) => {
+                    if (err) return reject(err);
 
-                resolve(senha);
+                    senha.status = "chamando";
+
+                    resolve(senha);
             });
         });
     });
