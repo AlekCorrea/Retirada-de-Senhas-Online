@@ -2,15 +2,14 @@ const model = require("../models/senhaModel");
 
 exports.criar = async (req, res) => {
     try {
+
         const { tipo } = req.body;
+        const usuario = req.usuario;
 
-        if (!tipo) {
-            return res.status(400).json({
-                mensagem: "Informe o tipo"
-            });
-        }
-
-        const senha = await model.criarSenha(tipo);
+        const senha = await model.criarSenha(
+            tipo,
+            usuario.email
+        );
 
         return res.status(201).json(senha);
 

@@ -8,47 +8,78 @@ let contadorPrioritarias = 0;
    normal -> N001
    prioritario -> P001
 =================================================== */
-exports.criarSenha = (tipo) => {
+exports.criarSenha = (tipo, email) => {
     return new Promise((resolve, reject) => {
 
-        const prefixo = tipo === "prioritario" ? "P" : "N";
-
-        const sqlUltima = `
-            SELECT numero
-            FROM senha
-            WHERE tipo = ?
-              AND numero IS NOT NULL
-            ORDER BY id DESC
+        // verificar se já existe senha ativa
+        const sqlVerifica = `
+            SELECT * FROM senha
+            WHERE email_usuario = ?
+            AND status IN ('esperando', 'chamando')
             LIMIT 1
         `;
 
-        db.query(sqlUltima, [tipo], (err, result) => {
+        db.query(sqlVerifica, [email], (err, existe) => {
             if (err) return reject(err);
 
-            let proximoNumero = 1;
-
-            if (result.length > 0) {
-                const ultimo = result[0].numero.substring(1);
-                proximoNumero = parseInt(ultimo) + 1;
+            if (existe.length > 0) {
+                return reject(
+                    new Error("Você já possui uma senha ativa.")
+                );
             }
 
-            const numeroFormatado =
-                prefixo + String(proximoNumero).padStart(3, "0");
+            const prefixo =
+                tipo === "prioritario" ? "P" : "N";
 
-            const sqlInsert = `
-                INSERT INTO senha (numero, tipo, status)
-                VALUES (?, ?, 'esperando')
+            const sqlUltima = `
+                SELECT numero
+                FROM senha
+                WHERE tipo = ?
+                ORDER BY id DESC
+                LIMIT 1
             `;
 
-            db.query(sqlInsert, [numeroFormatado, tipo], (err, insertResult) => {
+            db.query(sqlUltima, [tipo], (err, result) => {
                 if (err) return reject(err);
 
-                resolve({
-                    id: insertResult.insertId,
-                    numero: numeroFormatado,
-                    tipo,
-                    status: "esperando"
-                });
+                let proximoNumero = 1;
+
+                if (
+                    result.length > 0 &&
+                    result[0].numero
+                ) {
+                    const ultimo =
+                        result[0].numero.substring(1);
+
+                    proximoNumero =
+                        parseInt(ultimo) + 1;
+                }
+
+                const numeroFormatado =
+                    prefixo +
+                    String(proximoNumero).padStart(3, "0");
+
+                const sqlInsert = `
+                    INSERT INTO senha
+                    (numero, tipo, status, email_usuario)
+                    VALUES (?, ?, 'esperando', ?)
+                `;
+
+                db.query(
+                    sqlInsert,
+                    [numeroFormatado, tipo, email],
+                    (err, insertResult) => {
+                        if (err) return reject(err);
+
+                        resolve({
+                            id: insertResult.insertId,
+                            numero: numeroFormatado,
+                            tipo,
+                            status: "esperando",
+                            email_usuario: email
+                        });
+                    }
+                );
             });
         });
     });
