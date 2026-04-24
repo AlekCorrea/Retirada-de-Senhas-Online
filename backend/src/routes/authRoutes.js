@@ -15,4 +15,6 @@ router.get("/google/callback",
     controller.callback
 );
 
+router.post("/admin/login", controller.loginAdmin);
+
 module.exports = router;

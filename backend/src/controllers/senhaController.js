@@ -37,3 +37,56 @@ exports.chamar = async (req, res) => {
         res.status(500).json(err);
     }
 };
+
+exports.finalizar = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const resultado = await model.finalizarSenha(id);
+        res.json(resultado);
+    } catch (err) {
+        res.status(500).json(err);
+    }
+};
+
+exports.cancelar = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const resultado = await model.cancelarSenha(id);
+        res.json(resultado);
+    } catch (err) {
+        res.status(500).json(err);
+    }
+};
+
+exports.minhaSenha = async (req, res) => {
+    try {
+
+        const email = req.usuario.email;
+
+        const resultado = await model.buscarMinhaSenha(email);
+
+        res.json(resultado);
+
+    } catch (err) {
+        res.status(500).json({
+            erro: err.message
+        });
+    }
+};
+
+
+exports.cancelarMinhaSenha = async (req, res) => {
+    try {
+        const email = req.usuario.email;
+
+        const resultado =
+            await model.cancelarMinhaSenha(email);
+
+        res.json(resultado);
+
+    } catch (err) {
+        res.status(500).json({
+            erro: err.message
+        });
+    }
+};

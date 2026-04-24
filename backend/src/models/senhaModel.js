@@ -234,3 +234,103 @@ exports.cancelarSenha = (id) => {
         });
     });
 };
+
+exports.buscarMinhaSenha = (email) => {
+    return new Promise((resolve, reject) => {
+
+        const sql = `
+            SELECT *
+            FROM senha
+            WHERE email_usuario = ?
+            AND status IN ('esperando', 'chamando')
+            ORDER BY id ASC
+            LIMIT 1
+        `;
+
+        db.query(sql, [email], (err, result) => {
+
+            if (err) return reject(err);
+
+            if (result.length === 0) {
+                return resolve({
+                    mensagem: "Você não possui senha ativa"
+                });
+            }
+
+            const minhaSenha = result[0];
+
+            const sqlFila = `
+                SELECT COUNT(*) AS total
+                FROM senha
+                WHERE status = 'esperando'
+                AND id < ?
+            `;
+
+            db.query(sqlFila, [minhaSenha.id], (err, fila) => {
+
+                if (err) return reject(err);
+
+                resolve({
+                    numero: minhaSenha.numero,
+                    tipo: minhaSenha.tipo,
+                    status: minhaSenha.status,
+                    pessoasNaFrente: fila[0].total
+                });
+            });
+        });
+    });
+};
+
+exports.cancelarMinhaSenha = (email) => {
+    return new Promise((resolve, reject) => {
+
+        // buscar senha ativa do cliente
+        const sqlBusca = `
+            SELECT *
+            FROM senha
+            WHERE email_usuario = ?
+            AND status IN ('esperando', 'chamando')
+            ORDER BY id ASC
+            LIMIT 1
+        `;
+
+        db.query(sqlBusca, [email], (err, result) => {
+
+            if (err) return reject(err);
+
+            if (result.length === 0) {
+                return resolve({
+                    mensagem:
+                    "Nenhuma senha ativa encontrada"
+                });
+            }
+
+            const senha = result[0];
+
+            // se já estiver chamando
+            if (senha.status === "chamando") {
+                return resolve({
+                    mensagem:
+                    "Sua senha já está em atendimento e não pode ser cancelada."
+                });
+            }
+
+            // cancelar somente se esperando
+            const sqlUpdate = `
+                UPDATE senha
+                SET status = 'cancelado'
+                WHERE id = ?
+            `;
+
+            db.query(sqlUpdate, [senha.id], (err) => {
+
+                if (err) return reject(err);
+
+                resolve({
+                    mensagem:
+                    "Senha cancelada com sucesso"
+                });
+            });
+        });
+    });
+};
