@@ -1,18 +1,22 @@
 const jwt = require("jsonwebtoken");
 
 module.exports = (req, res, next) => {
-
-    const auth = req.headers.authorization;
-
-    if (!auth) {
-        return res.status(401).json({
-            mensagem: "Token obrigatório"
-        });
-    }
-
-    const token = auth.split(" ")[1];
-
     try {
+        const auth = req.headers.authorization;
+
+        if (!auth) {
+            return res.status(401).json({
+                mensagem: "Token obrigatório"
+            });
+        }
+
+        if (!auth.startsWith("Bearer ")) {
+            return res.status(401).json({
+                mensagem: "Formato inválido"
+            });
+        }
+
+        const token = auth.split(" ")[1];
 
         const decoded = jwt.verify(
             token,
@@ -29,9 +33,9 @@ module.exports = (req, res, next) => {
 
         next();
 
-    } catch {
+    } catch (error) {
         return res.status(401).json({
-            mensagem: "Token inválido"
+            mensagem: "Token inválido ou expirado"
         });
     }
 };
