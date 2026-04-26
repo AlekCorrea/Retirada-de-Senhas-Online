@@ -334,3 +334,116 @@ exports.cancelarMinhaSenha = (email) => {
         });
     });
 };
+
+/* ===================================================
+   MINHA SENHA + POSIÇÃO + TEMPO ESTIMADO (REGRA 3x1)
+=================================================== */
+exports.buscarMinhaSenha = (email) => {
+    return new Promise((resolve, reject) => {
+
+        const sqlMinha = `
+            SELECT *
+            FROM senha
+            WHERE email_usuario = ?
+            AND status IN ('esperando', 'chamando')
+            ORDER BY id ASC
+            LIMIT 1
+        `;
+
+        db.query(sqlMinha, [email], (err, result) => {
+            if (err) return reject(err);
+
+            if (result.length === 0) {
+                return resolve({
+                    mensagem: "Você não possui senha ativa."
+                });
+            }
+
+            const minhaSenha = result[0];
+
+            // se já estiver sendo chamada
+            if (minhaSenha.status === "chamando") {
+                return resolve({
+                    numero: minhaSenha.numero,
+                    tipo: minhaSenha.tipo,
+                    status: minhaSenha.status,
+                    pessoasNaFrente: 0,
+                    tempoEstimadoMinutos: 0
+                });
+            }
+
+            /* ==========================================
+               BUSCAR FILA REAL
+            ========================================== */
+            const sqlFila = `
+                SELECT id, numero, tipo
+                FROM senha
+                WHERE status = 'esperando'
+                ORDER BY id ASC
+            `;
+
+            db.query(sqlFila, (err, fila) => {
+                if (err) return reject(err);
+
+                let ordem = [];
+                let prioridadesSeguidas = 0;
+
+                let pendentes = [...fila];
+
+                while (pendentes.length > 0) {
+
+                    let indice = -1;
+
+                    // até 3 prioritárias seguidas
+                    if (prioridadesSeguidas < 3) {
+                        indice = pendentes.findIndex(
+                            s => s.tipo === "prioritario"
+                        );
+                    }
+
+                    // se não encontrou prioritária, chama normal
+                    if (indice === -1) {
+                        indice = pendentes.findIndex(
+                            s => s.tipo === "normal"
+                        );
+                        prioridadesSeguidas = 0;
+                    }
+
+                    // fallback
+                    if (indice === -1) {
+                        indice = 0;
+                    }
+
+                    const chamada =
+                        pendentes.splice(indice, 1)[0];
+
+                    if (chamada.tipo === "prioritario") {
+                        prioridadesSeguidas++;
+                    } else {
+                        prioridadesSeguidas = 0;
+                    }
+
+                    ordem.push(chamada);
+                }
+
+                const posicao = ordem.findIndex(
+                    s => s.id === minhaSenha.id
+                );
+
+                const pessoasNaFrente = posicao;
+
+                const tempoMedio = 5; // minutos
+                const estimativa =
+                    pessoasNaFrente * tempoMedio;
+
+                resolve({
+                    numero: minhaSenha.numero,
+                    tipo: minhaSenha.tipo,
+                    status: minhaSenha.status,
+                    pessoasNaFrente,
+                    tempoEstimadoMinutos: estimativa
+                });
+            });
+        });
+    });
+};

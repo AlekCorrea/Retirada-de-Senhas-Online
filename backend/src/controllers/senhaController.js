@@ -90,3 +90,17 @@ exports.cancelarMinhaSenha = async (req, res) => {
         });
     }
 };
+
+exports.minhaSenha = async (req, res) => {
+    try {
+        const email = req.usuario.email;
+
+        const resultado =
+            await model.buscarMinhaSenha(email);
+
+        res.json(resultado);
+
+    } catch (err) {
+        res.status(500).json(err);
+    }
+};
