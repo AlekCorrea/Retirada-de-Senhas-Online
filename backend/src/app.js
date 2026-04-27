@@ -18,4 +18,7 @@ const senhaRoutes = require("./routes/senhaRoutes");
 // usar rotas
 app.use("/api", senhaRoutes);
 
+
+app.use(express.static("public"));
+
 module.exports = app;

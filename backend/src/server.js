@@ -1,21 +1,44 @@
+// src/server.js
 require("dotenv").config();
 
 const app = require("./app");
-
+const http = require("http");
 const passport = require("passport");
+
 require("./config/passport");
 
 const authRoutes = require("./routes/authRoutes");
+const configurarSocket = require("./websocket/socket");
 
-// middlewares
+/* =====================================
+   MIDDLEWARES
+===================================== */
 app.use(passport.initialize());
 
-// rotas
+/* =====================================
+   ROTAS
+===================================== */
 app.use("/auth", authRoutes);
 
-// porta
+/* =====================================
+   SERVIDOR HTTP
+===================================== */
+const server = http.createServer(app);
+
+/* =====================================
+   SOCKET.IO (separado)
+===================================== */
+const io = configurarSocket(server);
+
+/* disponibiliza io para controllers */
+app.set("io", io);
+
+/* =====================================
+   PORTA
+===================================== */
 const PORT = 3000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
+

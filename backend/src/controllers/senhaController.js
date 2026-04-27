@@ -1,8 +1,10 @@
 const model = require("../models/senhaModel");
 
+/* =====================================
+   CRIAR SENHA
+===================================== */
 exports.criar = async (req, res) => {
     try {
-
         const { tipo } = req.body;
         const usuario = req.usuario;
 
@@ -10,6 +12,9 @@ exports.criar = async (req, res) => {
             tipo,
             usuario.email
         );
+
+        const io = req.app.get("io");
+        io.emit("filaAtualizada");
 
         return res.status(201).json(senha);
 
@@ -20,77 +25,81 @@ exports.criar = async (req, res) => {
     }
 };
 
+/* =====================================
+   LISTAR TODAS
+===================================== */
 exports.listar = async (req, res) => {
     try {
         const senhas = await model.listarSenhas();
         res.json(senhas);
+
     } catch (err) {
         res.status(500).json(err);
     }
 };
 
+/* =====================================
+   CHAMAR PRÓXIMA
+===================================== */
 exports.chamar = async (req, res) => {
     try {
         const senha = await model.chamarProxima();
+
+        const io = req.app.get("io");
+
+        io.emit("senhaChamada", senha);
+        io.emit("filaAtualizada");
+
         res.json(senha);
+
     } catch (err) {
         res.status(500).json(err);
     }
 };
 
+/* =====================================
+   FINALIZAR
+===================================== */
 exports.finalizar = async (req, res) => {
     try {
         const { id } = req.params;
-        const resultado = await model.finalizarSenha(id);
+
+        const resultado =
+            await model.finalizarSenha(id);
+
+        const io = req.app.get("io");
+        io.emit("filaAtualizada");
+
         res.json(resultado);
+
     } catch (err) {
         res.status(500).json(err);
     }
 };
 
+/* =====================================
+   CANCELAR (ADMIN)
+===================================== */
 exports.cancelar = async (req, res) => {
     try {
         const { id } = req.params;
-        const resultado = await model.cancelarSenha(id);
+
+        const resultado =
+            await model.cancelarSenha(id);
+
+        const io = req.app.get("io");
+        io.emit("filaAtualizada");
+
         res.json(resultado);
+
     } catch (err) {
         res.status(500).json(err);
     }
 };
 
-exports.minhaSenha = async (req, res) => {
-    try {
-
-        const email = req.usuario.email;
-
-        const resultado = await model.buscarMinhaSenha(email);
-
-        res.json(resultado);
-
-    } catch (err) {
-        res.status(500).json({
-            erro: err.message
-        });
-    }
-};
-
-
-exports.cancelarMinhaSenha = async (req, res) => {
-    try {
-        const email = req.usuario.email;
-
-        const resultado =
-            await model.cancelarMinhaSenha(email);
-
-        res.json(resultado);
-
-    } catch (err) {
-        res.status(500).json({
-            erro: err.message
-        });
-    }
-};
-
+/* =====================================
+   MINHA SENHA
+===================================== */
 exports.minhaSenha = async (req, res) => {
     try {
         const email = req.usuario.email;
@@ -101,6 +110,30 @@ exports.minhaSenha = async (req, res) => {
         res.json(resultado);
 
     } catch (err) {
-        res.status(500).json(err);
+        res.status(500).json({
+            erro: err.message
+        });
+    }
+};
+
+/* =====================================
+   CANCELAR MINHA SENHA
+===================================== */
+exports.cancelarMinhaSenha = async (req, res) => {
+    try {
+        const email = req.usuario.email;
+
+        const resultado =
+            await model.cancelarMinhaSenha(email);
+
+        const io = req.app.get("io");
+        io.emit("filaAtualizada");
+
+        res.json(resultado);
+
+    } catch (err) {
+        res.status(500).json({
+            erro: err.message
+        });
     }
 };
