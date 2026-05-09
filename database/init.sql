@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS senha (
     status VARCHAR(20) NOT NULL CHECK (status IN ('esperando', 'chamando', 'atendido', 'cancelado')),
     email_usuario VARCHAR(255) NOT NULL,
     nome_usuario VARCHAR(255),
+    dispositivo_id VARCHAR(255),
     atendente_id INTEGER REFERENCES atendentes(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE INDEX IF NOT EXISTS idx_senha_status ON senha(status);
 CREATE INDEX IF NOT EXISTS idx_senha_tipo ON senha(tipo);
 CREATE INDEX IF NOT EXISTS idx_senha_email ON senha(email_usuario);
+CREATE INDEX IF NOT EXISTS idx_senha_dispositivo ON senha(dispositivo_id);
 CREATE INDEX IF NOT EXISTS idx_senha_numero ON senha(numero);
 CREATE INDEX IF NOT EXISTS idx_atendimentos_senha_id ON atendimentos(senha_id);
 CREATE INDEX IF NOT EXISTS idx_atendimentos_atendente_id ON atendimentos(atendente_id);

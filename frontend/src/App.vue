@@ -5,7 +5,6 @@
         <h1>🎫 Senhas Online</h1>
       </div>
       <div class="navbar-menu">
-        <router-link to="/" class="nav-link">Home</router-link>
         <router-link to="/admin" class="nav-link" v-if="isAdmin">Admin</router-link>
         <router-link to="/minha-senha" class="nav-link" v-if="isLoggedIn">Minha Senha</router-link>
         <button @click="logout" class="btn-logout" v-if="isLoggedIn">Sair</button>
