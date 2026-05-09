@@ -1,47 +1,72 @@
-version: "3.9"
+version: '3.8'
 
 services:
-  nginx:
-    image: nginx:latest
-    container_name: nginx
-    ports:
-      - "8080:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - frontend
-      - backend
-
-  frontend:
-    build: ./frontend
-    container_name: frontend
-    ports:
-      - "5173:5173"
-    command: ["npm","run","dev","--","--host","0.0.0.0","--port","5173"]
-    depends_on:
-      - backend
-
-  backend:
-    build: ./backend
-    container_name: backend
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgres://app_user:app_pass@postgres:5432/app_db
-    depends_on:
-      - postgres
-
+  # PostgreSQL Database
   postgres:
-    image: postgres:16
-    container_name: postgres
+    image: postgres:15-alpine
+    container_name: bdsenha_postgres
     environment:
-      POSTGRES_DB: app_db
-      POSTGRES_USER: app_user
-      POSTGRES_PASSWORD: app_pass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bdsenha
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - senhas_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: senhas_backend
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: bdsenha
+      PORT: 3000
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+    networks:
+      - senhas_network
+    command: npm run dev
+
+  # Frontend Web
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: senhas_frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    networks:
+      - senhas_network
+    environment:
+      - BACKEND_URL=http://backend:3000
 
 volumes:
   postgres_data:
+
+networks:
+  senhas_network:
+    driver: bridge
