@@ -39,95 +39,76 @@ exports.criarSenha = (tipo, deviceId) => {
         );
       }
 
-      // Verificar se este dispositivo já retirou uma senha hoje
-      const hoje = new Date().toISOString().split('T')[0];
-      const sqlVerificaHoje = `
-          SELECT * FROM senha
-          WHERE dispositivo_id = $1
-          AND DATE(created_at) = $2
+      const prefixo =
+        tipo === "prioritario" ? "P" : "N";
+
+      const sqlUltima = `
+          SELECT numero
+          FROM senha
+          WHERE tipo = $1
+          ORDER BY id DESC
           LIMIT 1
       `;
 
-      db.query(sqlVerificaHoje, [deviceId, hoje], (err, resultHoje) => {
+      db.query(sqlUltima, [tipo], (err, result) => {
         if (err) return reject(err);
 
-        if (resultHoje.rows.length > 0) {
-          return reject(
-            new Error("Este computador já retirou uma senha hoje. Volte amanhã para retirar outra.")
-          );
+        let proximoNumero = 1;
+
+        if (
+          result.rows.length > 0 &&
+          result.rows[0].numero
+        ) {
+          const ultimo =
+            result.rows[0].numero.substring(1);
+
+          proximoNumero =
+            parseInt(ultimo) + 1;
         }
 
-        const prefixo =
-          tipo === "prioritario" ? "P" : "N";
+        const numeroFormatado =
+          prefixo +
+          String(proximoNumero).padStart(3, "0");
 
-        const sqlUltima = `
-            SELECT numero
-            FROM senha
-            WHERE tipo = $1
-            ORDER BY id DESC
-            LIMIT 1
+        const codigoVerificacao = gerarCodigoVerificacao();
+
+        const sqlInsert = `
+            INSERT INTO senha
+            (numero, tipo, status, dispositivo_id, codigo_verificacao)
+            VALUES ($1, $2, 'esperando', $3, $4)
+            RETURNING *
         `;
 
-        db.query(sqlUltima, [tipo], (err, result) => {
-          if (err) return reject(err);
+        db.query(
+          sqlInsert,
+          [numeroFormatado, tipo, deviceId, codigoVerificacao],
+          (err, insertResult) => {
+            if (err) return reject(err);
 
-          let proximoNumero = 1;
+            const novaSenhaId = insertResult.rows[0].id;
 
-          if (
-            result.rows.length > 0 &&
-            result.rows[0].numero
-          ) {
-            const ultimo =
-              result.rows[0].numero.substring(1);
+            // Contar pessoas na frente
+            const sqlFila = `
+                SELECT COUNT(*) AS total
+                FROM senha
+                WHERE status = 'esperando'
+                AND id < $1
+            `;
 
-            proximoNumero =
-              parseInt(ultimo) + 1;
-          }
-
-          const numeroFormatado =
-            prefixo +
-            String(proximoNumero).padStart(3, "0");
-
-          const codigoVerificacao = gerarCodigoVerificacao();
-
-          const sqlInsert = `
-              INSERT INTO senha
-              (numero, tipo, status, dispositivo_id, codigo_verificacao)
-              VALUES ($1, $2, 'esperando', $3, $4)
-              RETURNING *
-          `;
-
-          db.query(
-            sqlInsert,
-            [numeroFormatado, tipo, deviceId, codigoVerificacao],
-            (err, insertResult) => {
+            db.query(sqlFila, [novaSenhaId], (err, fila) => {
               if (err) return reject(err);
 
-              const novaSenhaId = insertResult.rows[0].id;
-
-              // Contar pessoas na frente
-              const sqlFila = `
-                  SELECT COUNT(*) AS total
-                  FROM senha
-                  WHERE status = 'esperando'
-                  AND id < $1
-              `;
-
-              db.query(sqlFila, [novaSenhaId], (err, fila) => {
-                if (err) return reject(err);
-
-                resolve({
-                  id: novaSenhaId,
-                  numero: numeroFormatado,
-                  tipo,
-                  status: "esperando",
-                  codigo_verificacao: codigoVerificacao,
-                  pessoasNaFrente: parseInt(fila.rows[0].total)
-                });
+              resolve({
+                id: novaSenhaId,
+                numero: numeroFormatado,
+                tipo,
+                status: "esperando",
+                codigo_verificacao: codigoVerificacao,
+                pessoasNaFrente: parseInt(fila.rows[0].total)
               });
-            }
-          );
-        });
+            });
+          }
+        );
       });
     });
   });

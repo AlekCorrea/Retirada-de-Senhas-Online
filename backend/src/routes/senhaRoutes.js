@@ -19,6 +19,9 @@ const atendente = require("../middlewares/atendenteMiddleware");
 // retirar senha pública (sem login)
 router.post("/senha/publica", controller.criarPublica);
 
+// ver minha senha pública (sem login)
+router.get("/minha-senha/publica", controller.minhaSenhaPublica);
+
 /* ==========================================
    CLIENTE
 ========================================== */

@@ -55,14 +55,20 @@
         </div>
       </div>
 
-      <!-- Com senha retirada - tela travada -->
-      <div v-else class="secao-sucesso">
+      <!-- Com senha retirada - aguardando atendimento -->
+      <div v-else-if="senhaRetirada && !senhaFinalizada" class="secao-sucesso">
         <div class="numero-senha">
           <div class="identificador">Sua senha</div>
           <div class="numero">{{ senhaRetirada.numero }}</div>
           <div class="tipo-badge" :class="senhaRetirada.tipo">
             {{ senhaRetirada.tipo === 'prioritario' ? '⭐ Prioritário' : '👤 Normal' }}
           </div>
+        </div>
+
+        <!-- Status da senha -->
+        <div v-if="senhaRetirada.status === 'chamando'" class="status-chamando">
+          <span class="icone-status">📢</span>
+          <span class="texto-status">Sua senha está sendo chamada! Dirija-se ao atendimento.</span>
         </div>
 
         <div class="info-senha">
@@ -113,6 +119,20 @@
           </ul>
         </div>
       </div>
+
+      <!-- Senha finalizada - mostrar opção de retirar nova -->
+      <div v-else class="secao-finalizada">
+        <div class="mensagem-finalizada">
+          <span class="icone-finalizada">✅</span>
+          <h2>Atendimento Finalizado!</h2>
+          <p>Seu atendimento foi concluído com sucesso.</p>
+          <p class="subtitulo-finalizada">Você pode retirar uma nova senha se necessário.</p>
+        </div>
+        <button @click="voltarParaRetirar" class="btn-retirar">
+          <span class="icone-botao">🎟️</span>
+          Retirar Nova Senha
+        </button>
+      </div>
     </div>
 
     <!-- Status da fila -->
@@ -145,6 +165,10 @@ const tempoMedio = ref(15)
 const tempoEstimado = ref(15)
 const horario = ref('')
 const deviceId = ref('')
+const senhaFinalizada = ref(false)
+
+let intervaloFila = null
+let intervaloMinhaSenha = null
 
 // Carregar estado salvo no localStorage
 const carregarEstadoSalvo = () => {
@@ -170,6 +194,20 @@ const salvarEstado = () => {
   }
 }
 
+// Limpar estado da senha (após atendimento ou cancelamento)
+const limparEstadoSenha = () => {
+  senhaRetirada.value = null
+  senhaFinalizada.value = false
+  horario.value = ''
+  localStorage.removeItem('senhaRetirada')
+  localStorage.removeItem('horario')
+}
+
+// Voltar para tela de retirar senha
+const voltarParaRetirar = () => {
+  limparEstadoSenha()
+}
+
 // Calcular horário previsto de atendimento
 const horarioPrevisao = computed(() => {
   if (!senhaRetirada.value || !senhaRetirada.value.pessoasNaFrente) return '--:--'
@@ -179,16 +217,64 @@ const horarioPrevisao = computed(() => {
   return agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 })
 
+// Verificar status da minha senha via API pública
+const verificarMinhaSenha = async () => {
+  if (!deviceId.value || !senhaRetirada.value) return
+
+  try {
+    const resposta = await axios.get(`/api/minha-senha/publica?deviceId=${deviceId.value}`)
+    
+    if (resposta.data && resposta.data.mensagem === 'Nenhuma senha ativa encontrada') {
+      // Senha foi finalizada ou cancelada
+      senhaFinalizada.value = true
+      // Parar o polling
+      if (intervaloMinhaSenha) {
+        clearInterval(intervaloMinhaSenha)
+        intervaloMinhaSenha = null
+      }
+      // Limpar localStorage após um breve delay para o usuário ver a mensagem
+      setTimeout(() => {
+        limparEstadoSenha()
+      }, 5000)
+    } else if (resposta.data && resposta.data.numero) {
+      // Atualizar dados da senha (status, pessoas na frente, etc.)
+      senhaRetirada.value = {
+        ...senhaRetirada.value,
+        status: resposta.data.status,
+        pessoasNaFrente: resposta.data.pessoasNaFrente
+      }
+      tempoEstimado.value = (resposta.data.pessoasNaFrente || 0) * 5
+      salvarEstado()
+    }
+  } catch (error) {
+    console.log('Não foi possível verificar status da senha')
+  }
+}
+
+// Iniciar polling da senha
+const iniciarPollingSenha = () => {
+  if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
+  intervaloMinhaSenha = setInterval(verificarMinhaSenha, 5000)
+}
+
 // Carregar status da fila ao montar o componente
 onMounted(() => {
   carregarEstadoSalvo()
   carregarStatusFila()
-  // Atualizar a cada 10 segundos
-  setInterval(carregarStatusFila, 10000)
+  
+  // Atualizar status da fila a cada 10 segundos
+  intervaloFila = setInterval(carregarStatusFila, 10000)
+  
+  // Se tem senha retirada, verificar status a cada 5 segundos
+  if (senhaRetirada.value) {
+    iniciarPollingSenha()
+  }
 })
 
 onBeforeUnmount(() => {
   salvarEstado()
+  if (intervaloFila) clearInterval(intervaloFila)
+  if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
 })
 
 const carregarStatusFila = async () => {
@@ -225,6 +311,9 @@ const retirarSenha = async () => {
 
     // Salvar estado
     salvarEstado()
+
+    // Iniciar polling para verificar quando a senha for atendida
+    iniciarPollingSenha()
 
   } catch (error) {
     console.error('Erro:', error)
@@ -459,6 +548,34 @@ const retirarSenha = async () => {
   color: #f57f17;
 }
 
+/* Status chamando */
+.status-chamando {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 16px 24px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  animation: pulse-status 1.5s infinite;
+}
+
+@keyframes pulse-status {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); }
+}
+
+.icone-status {
+  font-size: 2rem;
+}
+
+.texto-status {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
 .info-senha {
   display: flex;
   justify-content: center;
@@ -590,6 +707,39 @@ const retirarSenha = async () => {
   font-size: 0.9rem;
 }
 
+/* Seção finalizada */
+.secao-finalizada {
+  text-align: center;
+}
+
+.mensagem-finalizada {
+  margin-bottom: 32px;
+}
+
+.icone-finalizada {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.mensagem-finalizada h2 {
+  font-size: 1.8rem;
+  color: #059669;
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+
+.mensagem-finalizada p {
+  font-size: 1.1rem;
+  color: #333;
+  margin: 0 0 8px;
+}
+
+.subtitulo-finalizada {
+  color: #888 !important;
+  font-size: 0.95rem !important;
+}
+
 /* Card da fila */
 .card-fila {
   background: white;
@@ -654,6 +804,11 @@ const retirarSenha = async () => {
   .info-senha {
     flex-direction: column;
     gap: 16px;
+  }
+
+  .status-chamando {
+    flex-direction: column;
+    padding: 12px;
   }
 }
 </style>

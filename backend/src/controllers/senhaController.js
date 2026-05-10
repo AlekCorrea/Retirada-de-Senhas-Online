@@ -103,6 +103,28 @@ exports.minhaSenha = async (req, res) => {
   }
 };
 
+// Versão pública (sem autenticação) para o TicketView
+exports.minhaSenhaPublica = async (req, res) => {
+  try {
+    const { deviceId } = req.query;
+
+    if (!deviceId) {
+      return res.status(400).json({
+        erro: "deviceId é obrigatório"
+      });
+    }
+
+    const resultado = await model.buscarMinhaSenha(deviceId);
+
+    res.json(resultado);
+
+  } catch (err) {
+    res.status(500).json({
+      erro: err.message
+    });
+  }
+};
+
 exports.cancelarMinhaSenha = async (req, res) => {
   try {
     const { deviceId } = req.body;
