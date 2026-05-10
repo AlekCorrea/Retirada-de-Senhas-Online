@@ -1,7 +1,18 @@
 const db = require("../config/db");
+const crypto = require("crypto");
 
 // Controle simples 3x1 em memória
 let contadorPrioritarias = 0;
+
+// Gerar código de verificação aleatório de 8 caracteres (letras e números)
+function gerarCodigoVerificacao() {
+  const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let codigo = "";
+  for (let i = 0; i < 8; i++) {
+    codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+  }
+  return codigo;
+}
 
 /* ===================================================
    CRIAR SENHA
@@ -78,26 +89,44 @@ exports.criarSenha = (tipo, email, nome, deviceId) => {
             prefixo +
             String(proximoNumero).padStart(3, "0");
 
+          const codigoVerificacao = gerarCodigoVerificacao();
+
           const sqlInsert = `
               INSERT INTO senha
-              (numero, tipo, status, email_usuario, nome_usuario, dispositivo_id)
-              VALUES ($1, $2, 'esperando', $3, $4, $5)
+              (numero, tipo, status, email_usuario, nome_usuario, dispositivo_id, codigo_verificacao)
+              VALUES ($1, $2, 'esperando', $3, $4, $5, $6)
               RETURNING *
           `;
 
           db.query(
             sqlInsert,
-            [numeroFormatado, tipo, email, nome, deviceId],
+            [numeroFormatado, tipo, email, nome, deviceId, codigoVerificacao],
             (err, insertResult) => {
               if (err) return reject(err);
 
-              resolve({
-                id: insertResult.rows[0].id,
-                numero: numeroFormatado,
-                tipo,
-                status: "esperando",
-                email_usuario: email,
-                nome_usuario: nome
+              const novaSenhaId = insertResult.rows[0].id;
+
+              // Contar pessoas na frente
+              const sqlFila = `
+                  SELECT COUNT(*) AS total
+                  FROM senha
+                  WHERE status = 'esperando'
+                  AND id < $1
+              `;
+
+              db.query(sqlFila, [novaSenhaId], (err, fila) => {
+                if (err) return reject(err);
+
+                resolve({
+                  id: novaSenhaId,
+                  numero: numeroFormatado,
+                  tipo,
+                  status: "esperando",
+                  email_usuario: email,
+                  nome_usuario: nome,
+                  codigo_verificacao: codigoVerificacao,
+                  pessoasNaFrente: parseInt(fila.rows[0].total)
+                });
               });
             }
           );
@@ -291,6 +320,7 @@ exports.buscarMinhaSenha = (email) => {
           numero: minhaSenha.numero,
           tipo: minhaSenha.tipo,
           status: minhaSenha.status,
+          codigo_verificacao: minhaSenha.codigo_verificacao,
           pessoasNaFrente: parseInt(fila.rows[0].total)
         });
       });

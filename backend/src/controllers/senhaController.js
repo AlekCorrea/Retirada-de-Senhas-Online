@@ -1,17 +1,10 @@
 const model = require("../models/senhaModel");
 const crypto = require("crypto");
 
-// Gerar ID único do dispositivo para controle diário
-function obterIdDispositivo() {
-  const deviceId = crypto.randomUUID();
-  return deviceId;
-}
-
 // Criar senha pública (sem autenticação) - sem nome e email
 exports.criarPublica = async (req, res) => {
   try {
-    const { tipo } = req.body;
-    const deviceId = obterIdDispositivo();
+    const { tipo, deviceId } = req.body;
 
     if (!tipo) {
       return res.status(400).json({
@@ -19,7 +12,10 @@ exports.criarPublica = async (req, res) => {
       });
     }
 
-    const senha = await model.criarSenha(tipo, "", "", deviceId);
+    // Se não veio deviceId, gerar um novo
+    const idDispositivo = deviceId || crypto.randomUUID();
+
+    const senha = await model.criarSenha(tipo, "", "", idDispositivo);
 
     return res.status(201).json(senha);
 
@@ -124,8 +120,7 @@ exports.cancelarMinhaSenha = async (req, res) => {
 exports.obterFila = async (req, res) => {
   try {
     const senhas = await model.listarSenhas();
-    
-    // Calcular estatísticas
+
     const stats = {
       esperando: senhas.filter(s => s.status === 'esperando').length,
       chamando: senhas.filter(s => s.status === 'chamando').length,
@@ -152,7 +147,7 @@ exports.obterFila = async (req, res) => {
 exports.statusFilaPublica = async (req, res) => {
   try {
     const senhas = await model.listarSenhas();
-    
+
     const stats = {
       esperando: senhas.filter(s => s.status === 'esperando').length,
       chamando: senhas.filter(s => s.status === 'chamando').length,

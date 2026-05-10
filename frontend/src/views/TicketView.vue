@@ -78,10 +78,36 @@
           </div>
         </div>
 
+        <div class="secao-previsao">
+          <h3>📅 Previsão de Atendimento</h3>
+          <div class="previsao-content">
+            <div class="previsao-item">
+              <span class="icone-previsao">👥</span>
+              <span class="texto-previsao">{{ senhaRetirada.pessoasNaFrente }} senhas na frente</span>
+            </div>
+            <div class="previsao-item">
+              <span class="icone-previsao">🕐</span>
+              <span class="texto-previsao">Tempo estimado: {{ tempoEstimado }} minutos</span>
+            </div>
+            <div class="previsao-item">
+              <span class="icone-previsao">📅</span>
+              <span class="texto-previsao">Previsão: ~{{ horarioPrevisao }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="secao-codigo">
+          <h3>🔐 Código de Verificação</h3>
+          <div class="codigo-verificacao">
+            <span class="texto-codigo">{{ senhaRetirada.codigo_verificacao }}</span>
+          </div>
+          <p class="descricao-codigo">Guarde este código para comprovar sua senha</p>
+        </div>
+
         <div class="instrucoes">
           <h3>📌 Instruções:</h3>
           <ul>
-            <li>🎟️ Guarde seu número de senha</li>
+            <li>🎟️ Guarde seu número de senha e código de verificação</li>
             <li>📺 Acompanhe o painel de chamadas</li>
             <li>🚶 Compareça quando sua senha for chamada</li>
           </ul>
@@ -107,7 +133,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 
 const tipo = ref('normal')
@@ -118,12 +144,51 @@ const totalSenhas = ref(0)
 const tempoMedio = ref(15)
 const tempoEstimado = ref(15)
 const horario = ref('')
+const deviceId = ref('')
+
+// Carregar estado salvo no localStorage
+const carregarEstadoSalvo = () => {
+  const salva = localStorage.getItem('senhaRetirada')
+  if (salva) {
+    try {
+      senhaRetirada.value = JSON.parse(salva)
+      horario.value = localStorage.getItem('horario') || new Date().toLocaleTimeString('pt-BR')
+    } catch (e) {
+      console.error('Erro ao carregar estado salvo:', e)
+    }
+  }
+
+  // Carregar deviceId salvo
+  deviceId.value = localStorage.getItem('deviceId') || ''
+}
+
+// Salvar estado no localStorage
+const salvarEstado = () => {
+  if (senhaRetirada.value) {
+    localStorage.setItem('senhaRetirada', JSON.stringify(senhaRetirada.value))
+    localStorage.setItem('horario', horario.value)
+  }
+}
+
+// Calcular horário previsto de atendimento
+const horarioPrevisao = computed(() => {
+  if (!senhaRetirada.value || !senhaRetirada.value.pessoasNaFrente) return '--:--'
+  const agora = new Date()
+  const minutos = senhaRetirada.value.pessoasNaFrente * 5
+  agora.setMinutes(agora.getMinutes() + minutos)
+  return agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+})
 
 // Carregar status da fila ao montar o componente
 onMounted(() => {
+  carregarEstadoSalvo()
   carregarStatusFila()
   // Atualizar a cada 10 segundos
   setInterval(carregarStatusFila, 10000)
+})
+
+onBeforeUnmount(() => {
+  salvarEstado()
 })
 
 const carregarStatusFila = async () => {
@@ -143,13 +208,23 @@ const retirarSenha = async () => {
   erro.value = ''
 
   try {
+    // Se já existe deviceId salvo, usar ele
+    if (!deviceId.value) {
+      deviceId.value = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
+      localStorage.setItem('deviceId', deviceId.value)
+    }
+
     const resposta = await axios.post('http://localhost:3000/api/senha/publica',
-      { tipo: tipo.value }
+      { tipo: tipo.value, deviceId: deviceId.value }
     )
 
     senhaRetirada.value = resposta.data
     horario.value = new Date().toLocaleTimeString('pt-BR')
-    tempoEstimado.value = totalSenhas.value * 5
+    // Calcular tempo estimado baseado em pessoas na frente
+    tempoEstimado.value = (senhaRetirada.value.pessoasNaFrente || 0) * 5
+
+    // Salvar estado
+    salvarEstado()
 
   } catch (error) {
     console.error('Erro:', error)
@@ -414,6 +489,82 @@ const retirarSenha = async () => {
   color: #333;
 }
 
+/* Previsão de atendimento */
+.secao-previsao {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.secao-previsao h3 {
+  margin: 0 0 12px;
+  color: #1e40af;
+  font-size: 1rem;
+}
+
+.previsao-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.previsao-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.icone-previsao {
+  font-size: 1.2rem;
+}
+
+.texto-previsao {
+  font-size: 0.95rem;
+  color: #1e3a8a;
+  font-weight: 500;
+}
+
+/* Código de verificação */
+.secao-codigo {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.secao-codigo h3 {
+  margin: 0 0 12px;
+  color: #92400e;
+  font-size: 1rem;
+}
+
+.codigo-verificacao {
+  margin-bottom: 8px;
+}
+
+.texto-codigo {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #78350f;
+  letter-spacing: 4px;
+  font-family: monospace;
+  background: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: inline-block;
+  border: 2px dashed #d97706;
+}
+
+.descricao-codigo {
+  margin: 0;
+  color: #92400e;
+  font-size: 0.85rem;
+}
+
 .instrucoes {
   background: #f8f9ff;
   padding: 20px;
@@ -493,6 +644,11 @@ const retirarSenha = async () => {
   .numero {
     font-size: 3.5rem;
     padding: 24px;
+  }
+
+  .texto-codigo {
+    font-size: 1.5rem;
+    letter-spacing: 2px;
   }
 
   .info-senha {
