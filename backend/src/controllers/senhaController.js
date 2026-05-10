@@ -15,7 +15,7 @@ exports.criarPublica = async (req, res) => {
     // Se não veio deviceId, gerar um novo
     const idDispositivo = deviceId || crypto.randomUUID();
 
-    const senha = await model.criarSenha(tipo, "", "", idDispositivo);
+    const senha = await model.criarSenha(tipo, idDispositivo);
 
     return res.status(201).json(senha);
 
@@ -29,15 +29,11 @@ exports.criarPublica = async (req, res) => {
 
 exports.criar = async (req, res) => {
   try {
-    const { tipo } = req.body;
-    const usuario = req.usuario;
+    const { tipo, deviceId } = req.body;
 
-    const senha = await model.criarSenha(
-      tipo,
-      usuario.email,
-      "",
-      ""
-    );
+    const idDispositivo = deviceId || crypto.randomUUID();
+
+    const senha = await model.criarSenha(tipo, idDispositivo);
 
     return res.status(201).json(senha);
 
@@ -88,9 +84,15 @@ exports.cancelar = async (req, res) => {
 
 exports.minhaSenha = async (req, res) => {
   try {
-    const email = req.usuario.email;
+    const { deviceId } = req.query;
 
-    const resultado = await model.buscarMinhaSenha(email);
+    if (!deviceId) {
+      return res.status(400).json({
+        erro: "deviceId é obrigatório"
+      });
+    }
+
+    const resultado = await model.buscarMinhaSenha(deviceId);
 
     res.json(resultado);
 
@@ -103,10 +105,16 @@ exports.minhaSenha = async (req, res) => {
 
 exports.cancelarMinhaSenha = async (req, res) => {
   try {
-    const email = req.usuario.email;
+    const { deviceId } = req.body;
+
+    if (!deviceId) {
+      return res.status(400).json({
+        erro: "deviceId é obrigatório"
+      });
+    }
 
     const resultado =
-      await model.cancelarMinhaSenha(email);
+      await model.cancelarMinhaSenha(deviceId);
 
     res.json(resultado);
 

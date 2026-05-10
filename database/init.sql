@@ -28,8 +28,6 @@ CREATE TABLE IF NOT EXISTS senha (
     numero VARCHAR(10) UNIQUE NOT NULL,
     tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('normal', 'prioritario')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('esperando', 'chamando', 'atendido', 'cancelado')),
-    email_usuario VARCHAR(255) NOT NULL,
-    nome_usuario VARCHAR(255),
     dispositivo_id VARCHAR(255),
     codigo_verificacao VARCHAR(10),
     atendente_id INTEGER REFERENCES atendentes(id),
@@ -65,7 +63,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_senha_status ON senha(status);
 CREATE INDEX IF NOT EXISTS idx_senha_tipo ON senha(tipo);
-CREATE INDEX IF NOT EXISTS idx_senha_email ON senha(email_usuario);
 CREATE INDEX IF NOT EXISTS idx_senha_dispositivo ON senha(dispositivo_id);
 CREATE INDEX IF NOT EXISTS idx_senha_numero ON senha(numero);
 CREATE INDEX IF NOT EXISTS idx_senha_codigo ON senha(codigo_verificacao);

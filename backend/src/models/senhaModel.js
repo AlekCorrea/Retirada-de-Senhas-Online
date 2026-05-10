@@ -19,42 +19,41 @@ function gerarCodigoVerificacao() {
    normal -> N001
    prioritario -> P001
    =================================================== */
-exports.criarSenha = (tipo, email, nome, deviceId) => {
+exports.criarSenha = (tipo, deviceId) => {
   return new Promise((resolve, reject) => {
 
-    // verificar se já existe senha ativa
+    // Verificar se este dispositivo já possui uma senha ativa
     const sqlVerifica = `
         SELECT * FROM senha
-        WHERE email_usuario = $1
+        WHERE dispositivo_id = $1
         AND status IN ('esperando', 'chamando')
         LIMIT 1
     `;
 
-    db.query(sqlVerifica, [email], (err, result) => {
+    db.query(sqlVerifica, [deviceId], (err, result) => {
       if (err) return reject(err);
 
       if (result.rows.length > 0) {
         return reject(
-          new Error("Você já possui uma senha ativa.")
+          new Error("Este computador já possui uma senha ativa.")
         );
       }
 
-      // Verificar se a mesma pessoa já retirou uma senha hoje
+      // Verificar se este dispositivo já retirou uma senha hoje
       const hoje = new Date().toISOString().split('T')[0];
       const sqlVerificaHoje = `
           SELECT * FROM senha
-          WHERE (email_usuario = $1 OR dispositivo_id = $2)
-          AND DATE(created_at) = $3
-          AND status IN ('esperando', 'chamando')
+          WHERE dispositivo_id = $1
+          AND DATE(created_at) = $2
           LIMIT 1
       `;
 
-      db.query(sqlVerificaHoje, [email, deviceId, hoje], (err, resultHoje) => {
+      db.query(sqlVerificaHoje, [deviceId, hoje], (err, resultHoje) => {
         if (err) return reject(err);
 
         if (resultHoje.rows.length > 0) {
           return reject(
-            new Error("Você já retirou uma senha hoje. Volte amanhã para retirar outra.")
+            new Error("Este computador já retirou uma senha hoje. Volte amanhã para retirar outra.")
           );
         }
 
@@ -93,14 +92,14 @@ exports.criarSenha = (tipo, email, nome, deviceId) => {
 
           const sqlInsert = `
               INSERT INTO senha
-              (numero, tipo, status, email_usuario, nome_usuario, dispositivo_id, codigo_verificacao)
-              VALUES ($1, $2, 'esperando', $3, $4, $5, $6)
+              (numero, tipo, status, dispositivo_id, codigo_verificacao)
+              VALUES ($1, $2, 'esperando', $3, $4)
               RETURNING *
           `;
 
           db.query(
             sqlInsert,
-            [numeroFormatado, tipo, email, nome, deviceId, codigoVerificacao],
+            [numeroFormatado, tipo, deviceId, codigoVerificacao],
             (err, insertResult) => {
               if (err) return reject(err);
 
@@ -122,8 +121,6 @@ exports.criarSenha = (tipo, email, nome, deviceId) => {
                   numero: numeroFormatado,
                   tipo,
                   status: "esperando",
-                  email_usuario: email,
-                  nome_usuario: nome,
                   codigo_verificacao: codigoVerificacao,
                   pessoasNaFrente: parseInt(fila.rows[0].total)
                 });
@@ -281,25 +278,28 @@ exports.cancelarSenha = (id) => {
   });
 };
 
-exports.buscarMinhaSenha = (email) => {
+/* ===================================================
+   BUSCAR MINHA SENHA POR DEVICE ID
+   =================================================== */
+exports.buscarMinhaSenha = (deviceId) => {
   return new Promise((resolve, reject) => {
 
     const sql = `
         SELECT *
         FROM senha
-        WHERE email_usuario = $1
+        WHERE dispositivo_id = $1
         AND status IN ('esperando', 'chamando')
         ORDER BY id ASC
         LIMIT 1
     `;
 
-    db.query(sql, [email], (err, result) => {
+    db.query(sql, [deviceId], (err, result) => {
 
       if (err) return reject(err);
 
       if (result.rows.length === 0) {
         return resolve({
-          mensagem: "Você não possui senha ativa"
+          mensagem: "Nenhuma senha ativa encontrada"
         });
       }
 
@@ -328,19 +328,22 @@ exports.buscarMinhaSenha = (email) => {
   });
 };
 
-exports.cancelarMinhaSenha = (email) => {
+/* ===================================================
+   CANCELAR MINHA SENHA POR DEVICE ID
+   =================================================== */
+exports.cancelarMinhaSenha = (deviceId) => {
   return new Promise((resolve, reject) => {
 
     const sqlBusca = `
         SELECT *
         FROM senha
-        WHERE email_usuario = $1
+        WHERE dispositivo_id = $1
         AND status IN ('esperando', 'chamando')
         ORDER BY id ASC
         LIMIT 1
     `;
 
-    db.query(sqlBusca, [email], (err, result) => {
+    db.query(sqlBusca, [deviceId], (err, result) => {
 
       if (err) return reject(err);
 

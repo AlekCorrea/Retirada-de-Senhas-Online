@@ -52,8 +52,8 @@
               {{ senhaAtual.tipo === 'prioritario' ? '⭐ Prioritária' : '📋 Normal' }}
             </div>
             <div class="usuario-info">
-              <p><strong>Cliente:</strong> {{ senhaAtual.nome_usuario || 'Não informado' }}</p>
-              <p><strong>Email:</strong> {{ senhaAtual.email_usuario }}</p>
+              <p><strong>Senha:</strong> {{ senhaAtual.numero }}</p>
+              <p><strong>Código:</strong> {{ senhaAtual.codigo_verificacao }}</p>
             </div>
             <div class="acoes">
               <button @click="finalizarAtendimento" class="btn btn-success">
@@ -91,8 +91,8 @@
                 </div>
               </div>
               <div class="cliente">
-                <p>{{ senha.nome_usuario || 'Não informado' }}</p>
-                <small>{{ senha.email_usuario }}</small>
+                <p>{{ senha.codigo_verificacao }}</p>
+                <small>{{ senha.numero }}</small>
               </div>
               <div class="status-badge" :class="senha.status">
                 {{ getStatusLabel(senha.status) }}

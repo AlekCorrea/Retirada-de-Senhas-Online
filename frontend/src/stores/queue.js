@@ -4,6 +4,16 @@ import axios from 'axios'
 
 const API_URL = '/api'
 
+// Gerar ou recuperar deviceId do localStorage
+const getDeviceId = () => {
+  let deviceId = localStorage.getItem('deviceId')
+  if (!deviceId) {
+    deviceId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
+    localStorage.setItem('deviceId', deviceId)
+  }
+  return deviceId
+}
+
 export const useQueueStore = defineStore('queue', () => {
   const senhas = ref([])
   const minhaSenha = ref(null)
@@ -29,7 +39,8 @@ export const useQueueStore = defineStore('queue', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await axios.get(`${API_URL}/minha-senha`, {
+      const deviceId = getDeviceId()
+      const response = await axios.get(`${API_URL}/minha-senha?deviceId=${deviceId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       minhaSenha.value = response.data
@@ -44,7 +55,8 @@ export const useQueueStore = defineStore('queue', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await axios.post(`${API_URL}/senha`, { tipo }, {
+      const deviceId = getDeviceId()
+      const response = await axios.post(`${API_URL}/senha`, { tipo, deviceId }, {
         headers: { Authorization: `Bearer ${token}` }
       })
       minhaSenha.value = response.data
@@ -93,7 +105,8 @@ export const useQueueStore = defineStore('queue', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await axios.put(`${API_URL}/minha-senha/cancelar`, {}, {
+      const deviceId = getDeviceId()
+      const response = await axios.put(`${API_URL}/minha-senha/cancelar`, { deviceId }, {
         headers: { Authorization: `Bearer ${token}` }
       })
       minhaSenha.value = null

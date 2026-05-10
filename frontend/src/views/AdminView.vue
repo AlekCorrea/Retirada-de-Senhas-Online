@@ -35,7 +35,7 @@
             <div class="senha-info">
               <p><strong>Tipo:</strong> {{ senha.tipo === 'prioritario' ? 'Prioritário' : 'Normal' }}</p>
               <p><strong>Status:</strong> {{ getStatusLabel(senha.status) }}</p>
-              <p><strong>Email:</strong> {{ senha.email_usuario }}</p>
+              <p><strong>Código:</strong> {{ senha.codigo_verificacao }}</p>
             </div>
             <div class="senha-actions">
               <button 
