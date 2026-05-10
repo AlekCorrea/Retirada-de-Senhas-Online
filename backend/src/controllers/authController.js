@@ -10,7 +10,7 @@ exports.callback = (req, res) => {
     );
 
     // Redirecionar para o frontend com o token
-    res.redirect(`http://localhost:8080/?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`);
+    res.redirect(`/?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`);
 };
 
 exports.loginAtendente = (req, res) => {

@@ -63,7 +63,7 @@ const fazerLogin = async () => {
   erro.value = ''
 
   try {
-    const response = await axios.post('http://localhost:3000/auth/login-atendente', {
+    const response = await axios.post('/auth/login-atendente', {
       email: email.value,
       senha: senha.value
     })

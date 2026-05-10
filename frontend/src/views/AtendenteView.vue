@@ -148,7 +148,7 @@ const getStatusLabel = (status) => {
 
 const carregarFila = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/api/fila', {
+    const response = await axios.get('/api/fila', {
       headers: {
         Authorization: `Bearer ${authStore.token}`
       }
@@ -168,7 +168,7 @@ const carregarFila = async () => {
 const chamarProxima = async () => {
   loading.value = true
   try {
-    const response = await axios.put('http://localhost:3000/api/chamar', {}, {
+    const response = await axios.put('/api/chamar', {}, {
       headers: {
         Authorization: `Bearer ${authStore.token}`
       }
@@ -199,7 +199,7 @@ const finalizarAtendimento = async () => {
   if (!senhaAtual.value) return
   
   try {
-    await axios.put(`http://localhost:3000/api/finalizar/${senhaAtual.value.id}`, {}, {
+    await axios.put(`/api/finalizar/${senhaAtual.value.id}`, {}, {
       headers: {
         Authorization: `Bearer ${authStore.token}`
       }
@@ -225,7 +225,7 @@ const cancelarSenha = async () => {
   if (!confirm('Tem certeza que deseja cancelar esta senha?')) return
   
   try {
-    await axios.put(`http://localhost:3000/api/cancelar/${senhaAtual.value.id}`, {}, {
+    await axios.put(`/api/cancelar/${senhaAtual.value.id}`, {}, {
       headers: {
         Authorization: `Bearer ${authStore.token}`
       }

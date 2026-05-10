@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_URL = 'http://localhost:3000/api'
+const API_URL = '/api'
 
 export const useQueueStore = defineStore('queue', () => {
   const senhas = ref([])

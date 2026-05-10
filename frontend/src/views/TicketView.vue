@@ -193,7 +193,7 @@ onBeforeUnmount(() => {
 
 const carregarStatusFila = async () => {
   try {
-    const resposta = await axios.get('http://localhost:3000/api/senhas/status')
+    const resposta = await axios.get('/api/senhas/status')
     if (resposta.data) {
       totalSenhas.value = resposta.data.esperando || 0
       tempoMedio.value = Math.ceil((resposta.data.esperando || 0) * 5)
@@ -214,7 +214,7 @@ const retirarSenha = async () => {
       localStorage.setItem('deviceId', deviceId.value)
     }
 
-    const resposta = await axios.post('http://localhost:3000/api/senha/publica',
+    const resposta = await axios.post('/api/senha/publica',
       { tipo: tipo.value, deviceId: deviceId.value }
     )
 

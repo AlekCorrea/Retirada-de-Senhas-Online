@@ -38,8 +38,6 @@ services:
       DB_NAME: bdsenha
       PORT: 3000
       NODE_ENV: development
-    ports:
-      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,23 +47,34 @@ services:
       - senhas_network
     command: npm run dev
 
-  # Frontend Web
+  # Frontend Web (build only - output para volume compartilhado)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: senhas_frontend
+    container_name: senhas_frontend_builder
+    volumes:
+      - frontend_dist:/app/dist
+
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: senhas_nginx
     ports:
-      - "8080:8080"
+      - "80:80"
     depends_on:
       - backend
+      - frontend
+    volumes:
+      - frontend_dist:/usr/share/nginx/html:ro
     networks:
       - senhas_network
-    environment:
-      - BACKEND_URL=http://backend:3000
 
 volumes:
   postgres_data:
+  frontend_dist:
 
 networks:
   senhas_network:
