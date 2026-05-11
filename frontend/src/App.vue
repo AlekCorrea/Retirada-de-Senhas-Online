@@ -1,14 +1,12 @@
 <template>
   <div id="app" class="app-container">
     <nav class="navbar">
-      <div class="navbar-brand">
-        <h1>🎫 Senhas Online</h1>
-      </div>
-      <div class="navbar-menu">
-        <router-link to="/admin" class="nav-link" v-if="isAdmin">Admin</router-link>
-        <router-link to="/minha-senha" class="nav-link" v-if="isLoggedIn">Minha Senha</router-link>
-        <button @click="logout" class="btn-logout" v-if="isLoggedIn">Sair</button>
-      </div>
+  <div class="navbar-brand">
+    <h1>🎫 Senhas Online</h1>
+  </div>
+  <div class="navbar-menu">
+    <router-link to="/admin" class="nav-link" v-if="isAdmin">Admin</router-link>
+  </div>
     </nav>
 
     <main class="main-content">
@@ -52,11 +50,11 @@ export default {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: #f0f6fc;
 }
 
 .navbar {
-  background-color: #1e3a8a;
+  background-color: #263A4D;
   color: white;
   padding: 1rem 2rem;
   display: flex;
@@ -111,7 +109,7 @@ export default {
 }
 
 .footer {
-  background-color: #1e3a8a;
+  background-color: #263A4D;
   color: white;
   text-align: center;
   padding: 1rem;

@@ -256,7 +256,7 @@ const retirarSenha = async () => {
 <style scoped>
 .container-tela {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -292,20 +292,20 @@ const retirarSenha = async () => {
 .cabecalho h1 {
   font-size: 2rem;
   margin: 0;
-  color: #1e1e1e;
+  color: #263A4D;
   font-weight: 700;
 }
 
 .subtitulo {
   margin: 8px 0 0;
-  color: #666;
+  color: #4F789E;
   font-size: 1rem;
 }
 
 .secao-formulario h2 {
   font-size: 1.2rem;
   margin: 0 0 24px;
-  color: #333;
+  color: #3B5975;
   text-align: center;
   font-weight: 600;
 }
@@ -321,21 +321,21 @@ const retirarSenha = async () => {
   display: flex;
   align-items: center;
   padding: 20px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #75B1EB;
   border-radius: 14px;
   cursor: pointer;
   transition: all 0.3s;
-  background: #fafafa;
+  background: #f5f9fe;
 }
 
 .opcao-tipo:hover {
-  border-color: #667eea;
-  background: #f0f4ff;
+  border-color: #75B1EB;
+  background: #e8f2fb;
 }
 
 .opcao-tipo.selecionado {
-  border-color: #667eea;
-  background: #eef2ff;
+  border-color: #6397C7;
+  background: #e0edf7;
 }
 
 .opcao-tipo input {
@@ -343,7 +343,7 @@ const retirarSenha = async () => {
   cursor: pointer;
   width: 20px;
   height: 20px;
-  accent-color: #667eea;
+  accent-color: #75B1EB;
 }
 
 .conteudo-opcao {
@@ -365,19 +365,19 @@ const retirarSenha = async () => {
 
 .titulo-opcao {
   font-weight: 600;
-  color: #333;
+  color: #3B5975;
   font-size: 1rem;
 }
 
 .descricao-opcao {
-  color: #888;
+  color: #4F789E;
   font-size: 0.85rem;
 }
 
 .btn-retirar {
   width: 100%;
   padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
   color: white;
   border: none;
   border-radius: 14px;
@@ -393,7 +393,7 @@ const retirarSenha = async () => {
 
 .btn-retirar:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 12px 24px rgba(117, 177, 235, 0.4);
 }
 
 .btn-retirar:disabled {
@@ -440,7 +440,7 @@ const retirarSenha = async () => {
 
 .identificador {
   font-size: 0.9rem;
-  color: #888;
+  color: #4F789E;
   text-transform: uppercase;
   letter-spacing: 2px;
   margin-bottom: 8px;
@@ -449,12 +449,12 @@ const retirarSenha = async () => {
 .numero {
   font-size: 5.5rem;
   font-weight: 800;
-  color: #667eea;
+  color: #3B5975;
   line-height: 1;
   padding: 32px;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%);
+  background: linear-gradient(135deg, #e8f2fb 0%, #d6e7f7 100%);
   border-radius: 20px;
-  border: 3px solid #667eea;
+  border: 3px solid #6397C7;
   margin-bottom: 16px;
 }
 
@@ -467,18 +467,18 @@ const retirarSenha = async () => {
 }
 
 .tipo-badge.normal {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: #eaf8e5;
+  color: #4a9e2e;
 }
 
 .tipo-badge.prioritario {
-  background: #fff8e1;
-  color: #f57f17;
+  background: #fef7e0;
+  color: #b8860b;
 }
 
 /* Status chamando */
 .status-chamando {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: linear-gradient(135deg, #fef7e0 0%, #fcecb8 100%);
   padding: 16px 24px;
   border-radius: 14px;
   margin-bottom: 24px;
@@ -490,8 +490,8 @@ const retirarSenha = async () => {
 }
 
 @keyframes pulse-status {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
-  50% { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(235, 190, 117, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(235, 190, 117, 0); }
 }
 
 .icone-status {
@@ -501,7 +501,7 @@ const retirarSenha = async () => {
 .texto-status {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #92400e;
+  color: #8a6b1e;
 }
 
 /* Resumo da previsão - card único com todas as informações */
@@ -513,13 +513,13 @@ const retirarSenha = async () => {
 }
 
 .previsao-resumo.normal {
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-  border: 2px solid #2196f3;
+  background: linear-gradient(135deg, #d6e7f7 0%, #b5d5f0 100%);
+  border: 2px solid #6397C7;
 }
 
 .previsao-resumo.prioritario {
-  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-  border: 2px solid #ff9800;
+  background: linear-gradient(135deg, #fef7e0 0%, #fcecb8 100%);
+  border: 2px solid #EBBE75;
 }
 
 .previsao-linha {
@@ -550,16 +550,16 @@ const retirarSenha = async () => {
 }
 
 .previsao-resumo.normal .previsao-texto {
-  color: #1e3a8a;
+  color: #3B5975;
 }
 
 .previsao-resumo.prioritario .previsao-texto {
-  color: #9a3412;
+  color: #8a6b1e;
 }
 
 /* Código de verificação */
 .secao-codigo {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: linear-gradient(135deg, #fef7e0 0%, #fcecb8 100%);
   padding: 20px;
   border-radius: 14px;
   margin-bottom: 28px;
@@ -568,7 +568,7 @@ const retirarSenha = async () => {
 
 .secao-codigo h3 {
   margin: 0 0 12px;
-  color: #92400e;
+  color: #8a6b1e;
   font-size: 1rem;
 }
 
@@ -579,24 +579,24 @@ const retirarSenha = async () => {
 .texto-codigo {
   font-size: 2rem;
   font-weight: 800;
-  color: #78350f;
+  color: #5a4510;
   letter-spacing: 4px;
   font-family: monospace;
   background: white;
   padding: 12px 24px;
   border-radius: 8px;
   display: inline-block;
-  border: 2px dashed #d97706;
+  border: 2px dashed #EBBE75;
 }
 
 .descricao-codigo {
   margin: 0;
-  color: #92400e;
+  color: #8a6b1e;
   font-size: 0.85rem;
 }
 
 .instrucoes {
-  background: #f8f9ff;
+  background: #f0f6fc;
   padding: 20px;
   border-radius: 14px;
   text-align: left;
@@ -604,7 +604,7 @@ const retirarSenha = async () => {
 
 .instrucoes h3 {
   margin: 0 0 12px;
-  color: #333;
+  color: #3B5975;
   font-size: 1rem;
 }
 
@@ -615,7 +615,7 @@ const retirarSenha = async () => {
 
 .instrucoes li {
   margin: 8px 0;
-  color: #666;
+  color: #4F789E;
   font-size: 0.9rem;
 }
 
@@ -636,19 +636,19 @@ const retirarSenha = async () => {
 
 .mensagem-finalizada h2 {
   font-size: 1.8rem;
-  color: #059669;
+  color: #6bbf4a;
   margin: 0 0 12px;
   font-weight: 700;
 }
 
 .mensagem-finalizada p {
   font-size: 1.1rem;
-  color: #333;
+  color: #3B5975;
   margin: 0 0 8px;
 }
 
 .subtitulo-finalizada {
-  color: #888 !important;
+  color: #4F789E !important;
   font-size: 0.95rem !important;
 }
 
