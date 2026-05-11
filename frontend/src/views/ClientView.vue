@@ -111,10 +111,20 @@ const queueStore = useQueueStore()
 const tipoSelecionado = ref('normal')
 
 onMounted(() => {
-  if (!authStore.isLoggedIn) {
+  // Verificar se é um callback do Google
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get('token')
+  const user = urlParams.get('user')
+  
+  if (token && user) {
+    // É um callback do Google, processar
+    authStore.handleGoogleCallback()
+  } else if (!authStore.isLoggedIn) {
+    // Não está logado, redirecionar para login
     router.push('/login')
     return
   }
+  
   queueStore.fetchMinhaSenha(authStore.token)
 })
 
