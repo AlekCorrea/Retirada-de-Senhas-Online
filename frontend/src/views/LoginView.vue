@@ -61,11 +61,6 @@
           <p>Senha: admin123</p>
         </div>
       </div>
-
-      <router-link to="/" class="back-link">
-        <span class="icone-voltar">←</span>
-        Voltar para Início
-      </router-link>
     </div>
   </div>
 </template>
@@ -287,30 +282,6 @@ label {
   margin: 16px 0;
   border: none;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.back-link {
-  display: block;
-  text-align: center;
-  margin-top: 24px;
-  color: #6397C7;
-  text-decoration: none;
-  font-size: 0.95rem;
-  font-weight: 600;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.back-link:hover {
-  color: #75B1EB;
-  transform: translateY(-1px);
-}
-
-.icone-voltar {
-  font-size: 1.1rem;
 }
 
 /* Responsivo */
