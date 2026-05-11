@@ -7,6 +7,7 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token') || null)
   const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
   const isAdmin = ref(localStorage.getItem('isAdmin') === 'true')
+  const isGoogleUser = ref(localStorage.getItem('isGoogleUser') === 'true')
 
   const isLoggedIn = computed(() => !!token.value)
 
@@ -25,13 +26,20 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('isAdmin', admin)
   }
 
+  const setIsGoogleUser = (isGoogle) => {
+    isGoogleUser.value = isGoogle
+    localStorage.setItem('isGoogleUser', isGoogle)
+  }
+
   const logout = () => {
     token.value = null
     user.value = null
     isAdmin.value = false
+    isGoogleUser.value = false
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     localStorage.removeItem('isAdmin')
+    localStorage.removeItem('isGoogleUser')
     router.push('/')
   }
 
@@ -44,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
       setToken(token)
       setUser(JSON.parse(decodeURIComponent(user)))
       setAdmin(false) // Usuários do Google não são admin por padrão
+      setIsGoogleUser(true) // Marcar como usuário do Google
       router.push('/client')
       return true
     }
@@ -54,10 +63,12 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     user,
     isAdmin,
+    isGoogleUser,
     isLoggedIn,
     setToken,
     setUser,
     setAdmin,
+    setIsGoogleUser,
     logout,
     handleGoogleCallback
   }

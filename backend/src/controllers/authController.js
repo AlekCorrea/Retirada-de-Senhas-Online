@@ -9,8 +9,18 @@ exports.callback = (req, res) => {
         { expiresIn: "1d" }
     );
 
-    // Redirecionar para o ClientView com o token
-    res.redirect(`/client?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`);
+    // Verificar se há senha na query string
+    const senha = req.query.senha;
+    
+    // Redirecionar para o ClientView com o token e user
+    let redirectUrl = `/client?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`;
+    
+    // Se houver senha, adicioná-la à URL
+    if (senha) {
+        redirectUrl += `&senha=${encodeURIComponent(senha)}`;
+    }
+    
+    res.redirect(redirectUrl);
 };
 
 exports.loginAtendente = (req, res) => {

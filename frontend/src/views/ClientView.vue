@@ -7,7 +7,21 @@
           <h1>Área do Cliente</h1>
         </div>
         <div class="user-info">
-          <span>{{ authStore.user?.name || 'Usuário' }}</span>
+          <div class="user-profile">
+            <img 
+              v-if="authStore.user?.foto" 
+              :src="authStore.user.foto" 
+              :alt="authStore.user?.nome || 'Foto do usuário'"
+              class="user-avatar"
+            />
+            <div v-else class="user-avatar-placeholder">
+              <span class="avatar-icon">👤</span>
+            </div>
+            <div class="user-details">
+              <span class="user-name">{{ authStore.user?.nome || 'Usuário' }}</span>
+              <span v-if="authStore.user?.email" class="user-email">{{ authStore.user.email }}</span>
+            </div>
+          </div>
           <button @click="logout" class="btn-logout">Sair</button>
         </div>
       </div>
@@ -15,8 +29,75 @@
 
     <main class="main-content">
       <div class="card-principal">
-        <!-- Sem senha retirada -->
-        <div v-if="!queueStore.minhaSenha" class="secao-formulario">
+        <!-- Modo: Senha existente passada do TicketView (apenas para segundo caminho) -->
+        <div v-if="senhaExistente && !senhaDoSistema" class="secao-senha-existente">
+          <div class="mensagem-senha-existente">
+            <span class="icone-senha-existente">🎟️</span>
+            <h2>Você já tem uma senha em andamento!</h2>
+            <p>Seu número de senha é: <strong>{{ senhaExistente.numero }}</strong></p>
+            <p>Continue aguardando o atendimento.</p>
+          </div>
+          
+          <div class="detalhes-senha">
+            <div class="numero-senha">
+              <div class="identificador">Sua senha</div>
+              <div class="numero">{{ senhaExistente.numero }}</div>
+              <div class="tipo-badge" :class="senhaExistente.tipo">
+                {{ senhaExistente.tipo === 'prioritario' ? '⭐ Prioritário' : '👤 Normal' }}
+              </div>
+            </div>
+
+            <!-- Status chamando -->
+            <div v-if="senhaExistente.status === 'chamando'" class="status-chamando">
+              <span class="icone-status">📢</span>
+              <span class="texto-status">Sua senha está sendo chamada! Dirija-se ao atendimento.</span>
+            </div>
+
+            <!-- Resumo da previsão -->
+            <div class="previsao-resumo" :class="senhaExistente.tipo">
+              <div class="previsao-linha">
+                <span class="previsao-icone">👥</span>
+                <span class="previsao-texto">{{ senhaExistente.pessoasNaFrente }} {{ senhaExistente.pessoasNaFrente === 1 ? 'senha na frente' : 'senhas na frente' }}</span>
+              </div>
+              <div class="previsao-linha">
+                <span class="previsao-icone">⏱️</span>
+                <span class="previsao-texto">Tempo estimado: <strong>{{ senhaExistente.tempoEstimadoMinutos || 0 }} min</strong></span>
+              </div>
+              <div class="previsao-linha destaque">
+                <span class="previsao-icone">🕐</span>
+                <span class="previsao-texto">Previsão de chamada: <strong>{{ calcularHorarioEstimado(senhaExistente) }}</strong></span>
+              </div>
+            </div>
+
+            <!-- Código de verificação -->
+            <div class="secao-codigo">
+              <h3>🔐 Código de Verificação</h3>
+              <div class="codigo-verificacao">
+                <span class="texto-codigo">{{ senhaExistente.codigo_verificacao }}</span>
+              </div>
+              <p class="descricao-codigo">Guarde este código para comprovar sua senha</p>
+            </div>
+
+            <div class="acoes-senha">
+              <button 
+                @click="cancelarSenhaExistente" 
+                :disabled="queueStore.loading || senhaExistente.status === 'chamando'"
+                class="btn btn-danger"
+              >
+                ✗ Cancelar Senha
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modo: Formulário para retirar nova senha (primeiro caminho) -->
+        <div v-else-if="!senhaDoSistema" class="secao-formulario">
+          <div class="mensagem-boas-vindas">
+            <span class="icone-boas-vindas">👋</span>
+            <h2>Bem-vindo, {{ authStore.user?.nome }}!</h2>
+            <p>Escolha o tipo de atendimento para retirar sua senha.</p>
+          </div>
+          
           <h2>Escolha o tipo de atendimento:</h2>
 
           <div class="opcoes-tipo">
@@ -56,41 +137,50 @@
           </div>
         </div>
 
-        <!-- Com senha retirada - aguardando atendimento -->
+        <!-- Com senha ativa do sistema -->
         <div v-else class="secao-sucesso">
           <div class="numero-senha">
             <div class="identificador">Sua senha</div>
-            <div class="numero">{{ queueStore.minhaSenha.numero }}</div>
-            <div class="tipo-badge" :class="queueStore.minhaSenha.tipo">
-              {{ queueStore.minhaSenha.tipo === 'prioritario' ? '⭐ Prioritário' : '👤 Normal' }}
+            <div class="numero">{{ senhaDoSistema.numero }}</div>
+            <div class="tipo-badge" :class="senhaDoSistema.tipo">
+              {{ senhaDoSistema.tipo === 'prioritario' ? '⭐ Prioritário' : '👤 Normal' }}
             </div>
           </div>
 
           <!-- Status chamando -->
-          <div v-if="queueStore.minhaSenha.status === 'chamando'" class="status-chamando">
+          <div v-if="senhaDoSistema.status === 'chamando'" class="status-chamando">
             <span class="icone-status">📢</span>
             <span class="texto-status">Sua senha está sendo chamada! Dirija-se ao atendimento.</span>
           </div>
 
           <!-- Resumo da previsão -->
-          <div class="previsao-resumo" :class="queueStore.minhaSenha.tipo">
+          <div class="previsao-resumo" :class="senhaDoSistema.tipo">
             <div class="previsao-linha">
               <span class="previsao-icone">👥</span>
-              <span class="previsao-texto">{{ queueStore.minhaSenha.pessoasNaFrente || 0 }} {{ (queueStore.minhaSenha.pessoasNaFrente || 0) === 1 ? 'pessoa na frente' : 'pessoas na frente' }}</span>
+              <span class="previsao-texto">{{ senhaDoSistema.pessoasNaFrente || 0 }} {{ (senhaDoSistema.pessoasNaFrente || 0) === 1 ? 'pessoa na frente' : 'pessoas na frente' }}</span>
             </div>
             <div class="previsao-linha">
               <span class="previsao-icone">⏱️</span>
-              <span class="previsao-texto">Tempo estimado: <strong>{{ queueStore.minhaSenha.tempoEstimadoMinutos || 0 }} min</strong></span>
+              <span class="previsao-texto">Tempo estimado: <strong>{{ senhaDoSistema.tempoEstimadoMinutos || 0 }} min</strong></span>
             </div>
             <div class="previsao-linha destaque">
               <span class="previsao-icone">🕐</span>
-              <span class="previsao-texto">Previsão de chamada: <strong>{{ calcularHorarioEstimado() }}</strong></span>
+              <span class="previsao-texto">Previsão de chamada: <strong>{{ calcularHorarioEstimado(senhaDoSistema) }}</strong></span>
             </div>
+          </div>
+
+          <!-- Código de verificação -->
+          <div class="secao-codigo">
+            <h3>🔐 Código de Verificação</h3>
+            <div class="codigo-verificacao">
+              <span class="texto-codigo">{{ senhaDoSistema.codigo_verificacao }}</span>
+            </div>
+            <p class="descricao-codigo">Guarde este código para comprovar sua senha</p>
           </div>
 
           <button 
             @click="cancelarSenha" 
-            :disabled="queueStore.loading || queueStore.minhaSenha.status === 'chamando'"
+            :disabled="queueStore.loading || senhaDoSistema.status === 'chamando'"
             class="btn btn-danger"
           >
             ✗ Cancelar Senha
@@ -124,13 +214,11 @@
         </div>
       </div>
     </main>
-
-    <router-link to="/" class="back-link">← Voltar</router-link>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useQueueStore } from '../stores/queue'
@@ -140,11 +228,18 @@ const authStore = useAuthStore()
 const queueStore = useQueueStore()
 const tipoSelecionado = ref('normal')
 const historico = ref([])
+const senhaExistente = ref(null)
+
+// Computed para verificar se há senha do sistema
+const senhaDoSistema = computed(() => {
+  return queueStore.minhaSenha
+})
 
 const processGoogleCallback = () => {
   const urlParams = new URLSearchParams(window.location.search)
   const token = urlParams.get('token')
   const user = urlParams.get('user')
+  const senha = urlParams.get('senha')
   
   if (token && user) {
     try {
@@ -152,6 +247,17 @@ const processGoogleCallback = () => {
       authStore.setToken(token)
       authStore.setUser(userData)
       authStore.setAdmin(false) // Usuários do Google não são admin por padrão
+      
+      // Se houver senha passada do TicketView, armazená-la
+      if (senha) {
+        try {
+          senhaExistente.value = JSON.parse(decodeURIComponent(senha))
+          // Armazenar no localStorage para persistência
+          localStorage.setItem('senhaExistente', JSON.stringify(senhaExistente.value))
+        } catch (e) {
+          console.error('Erro ao processar senha existente:', e)
+        }
+      }
       
       // Limpar URL
       window.history.replaceState({}, document.title, window.location.pathname)
@@ -176,6 +282,17 @@ onMounted(() => {
     }
   }
   
+  // Verificar se há senha existente no localStorage
+  const senhaSalva = localStorage.getItem('senhaExistente')
+  if (senhaSalva) {
+    try {
+      senhaExistente.value = JSON.parse(senhaSalva)
+    } catch (e) {
+      console.error('Erro ao carregar senha salva:', e)
+      localStorage.removeItem('senhaExistente')
+    }
+  }
+  
   // Buscar senha ativa e histórico
   Promise.all([
     queueStore.fetchMinhaSenha(authStore.token),
@@ -194,6 +311,11 @@ const carregarHistorico = async () => {
 const criarSenha = async () => {
   try {
     await queueStore.criarSenha(tipoSelecionado.value, authStore.token)
+    // Remover senha existente se houver
+    if (senhaExistente.value) {
+      senhaExistente.value = null
+      localStorage.removeItem('senhaExistente')
+    }
     // Recarregar histórico após criar nova senha
     await carregarHistorico()
   } catch (error) {
@@ -213,7 +335,24 @@ const cancelarSenha = async () => {
   }
 }
 
+const cancelarSenhaExistente = async () => {
+  if (confirm('Tem certeza que deseja cancelar sua senha existente?')) {
+    try {
+      // Remover do localStorage
+      localStorage.removeItem('senhaExistente')
+      senhaExistente.value = null
+      // Recarregar histórico
+      await carregarHistorico()
+    } catch (error) {
+      console.error('Erro ao cancelar senha existente:', error)
+    }
+  }
+}
+
 const logout = () => {
+  // Limpar senha existente ao fazer logout
+  localStorage.removeItem('senhaExistente')
+  senhaExistente.value = null
   authStore.logout()
 }
 
@@ -227,8 +366,8 @@ const getStatusLabel = (status) => {
   return labels[status] || status
 }
 
-const calcularHorarioEstimado = () => {
-  const tempoEstimado = queueStore.minhaSenha?.tempoEstimadoMinutos || 0
+const calcularHorarioEstimado = (senha) => {
+  const tempoEstimado = senha?.tempoEstimadoMinutos || 0
   const agora = new Date()
   const horarioEstimado = new Date(agora.getTime() + tempoEstimado * 60000)
   
@@ -300,6 +439,52 @@ const formatarData = (dataString) => {
   gap: 20px;
 }
 
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #75B1EB;
+}
+
+.user-avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f5f9fe;
+  border: 2px solid #75B1EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-icon {
+  font-size: 1.2rem;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #3B5975;
+  font-size: 0.95rem;
+}
+
+.user-email {
+  font-size: 0.8rem;
+  color: #4F789E;
+}
+
 .btn-logout {
   background: #f5f9fe;
   color: #3B5975;
@@ -317,7 +502,9 @@ const formatarData = (dataString) => {
 }
 
 .main-content {
-  width: 100%;
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .card-principal {
@@ -327,6 +514,76 @@ const formatarData = (dataString) => {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 640px;
+}
+
+/* Seção de senha existente */
+.secao-senha-existente {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.mensagem-senha-existente {
+  background: linear-gradient(135deg, #e8f2fb 0%, #d6e7f7 100%);
+  padding: 24px;
+  border-radius: 14px;
+  margin-bottom: 28px;
+  border: 2px solid #6397C7;
+}
+
+.icone-senha-existente {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.mensagem-senha-existente h2 {
+  font-size: 1.5rem;
+  color: #3B5975;
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+
+.mensagem-senha-existente p {
+  font-size: 1rem;
+  color: #4F789E;
+  margin: 0 0 8px;
+}
+
+.detalhes-senha {
+  text-align: center;
+}
+
+/* Seção de formulário com boas-vindas */
+.secao-formulario {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.mensagem-boas-vindas {
+  background: linear-gradient(135deg, #e8f2fb 0%, #d6e7f7 100%);
+  padding: 24px;
+  border-radius: 14px;
+  margin-bottom: 28px;
+  border: 2px solid #6397C7;
+}
+
+.icone-boas-vindas {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.mensagem-boas-vindas h2 {
+  font-size: 1.5rem;
+  color: #3B5975;
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+
+.mensagem-boas-vindas p {
+  font-size: 1rem;
+  color: #4F789E;
+  margin: 0 0 8px;
 }
 
 .secao-formulario h2 {
@@ -605,6 +862,12 @@ const formatarData = (dataString) => {
   background: #dc2626;
 }
 
+.acoes-senha {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
 /* Seção de Histórico */
 .history-section {
   margin-top: 40px;
@@ -700,22 +963,42 @@ const formatarData = (dataString) => {
   font-size: 0.8rem;
 }
 
-.back-link {
-  display: block;
+/* Código de verificação */
+.secao-codigo {
+  background: linear-gradient(135deg, #fef7e0 0%, #fcecb8 100%);
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 28px;
   text-align: center;
-  color: #4F789E;
-  text-decoration: none;
-  font-size: 0.9rem;
-  margin-top: 20px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  transition: all 0.3s;
 }
 
-.back-link:hover {
-  text-decoration: underline;
+.secao-codigo h3 {
+  margin: 0 0 12px;
+  color: #8a6b1e;
+  font-size: 1rem;
+}
+
+.codigo-verificacao {
+  margin-bottom: 8px;
+}
+
+.texto-codigo {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #5a4510;
+  letter-spacing: 4px;
+  font-family: monospace;
   background: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: inline-block;
+  border: 2px dashed #EBBE75;
+}
+
+.descricao-codigo {
+  margin: 0;
+  color: #8a6b1e;
+  font-size: 0.85rem;
 }
 
 /* Responsivo */
@@ -739,6 +1022,11 @@ const formatarData = (dataString) => {
   .numero {
     font-size: 3.5rem;
     padding: 24px;
+  }
+
+  .texto-codigo {
+    font-size: 1.5rem;
+    letter-spacing: 2px;
   }
 
   .status-chamando {

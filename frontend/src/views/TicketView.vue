@@ -7,7 +7,7 @@
           <h1>Retirada de Senhas</h1>
         </div>
         <p class="subtitulo">Sistema de Atendimento Online</p>
-        <div class="login-section" v-if="!senhaFinalizada">
+        <div class="login-section" v-if="!senhaFinalizada && !authStore.isLoggedIn">
           <button @click="loginComGoogle" :disabled="carregandoLogin" class="btn-google">
             <span v-if="carregandoLogin" class="spinner"></span>
             <span v-else>
@@ -160,6 +160,13 @@ const carregarEstadoSalvo = () => {
   deviceId.value = localStorage.getItem('deviceId') || ''
 }
 
+// Redirecionar usuários Google já autenticados diretamente para ClientView
+onMounted(() => {
+  if (authStore.isLoggedIn && authStore.isGoogleUser) {
+    router.replace('/client')
+  }
+})
+
 const salvarEstado = () => {
   if (senhaRetirada.value) {
     localStorage.setItem('senhaRetirada', JSON.stringify(senhaRetirada.value))
@@ -271,8 +278,11 @@ const loginComGoogle = async () => {
   erro.value = ''
 
   try {
+    // Verificar se há senha retirada
+    const senhaExistente = senhaRetirada.value
+    
     // Redirecionar para o login do Google
-    window.location.href = '/auth/google'
+    window.location.href = senhaExistente ? `/auth/google?senha=${encodeURIComponent(JSON.stringify(senhaExistente))}` : '/auth/google'
   } catch (error) {
     console.error('Erro ao fazer login com Google:', error)
     erro.value = 'Erro ao fazer login com Google. Tente novamente.'
