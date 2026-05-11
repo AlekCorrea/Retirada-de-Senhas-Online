@@ -90,33 +90,64 @@
           </div>
         </section>
 
-        <!-- Fila de Espera -->
-        <section class="queue-section">
-          <h2>⏳ Fila de Espera ({{ fila.length }} senhas)</h2>
-          <div v-if="fila.length > 0" class="queue-list">
-            <div
-              v-for="(senha, index) in fila"
-              :key="senha.id"
-              class="queue-item"
-              :class="{ 'status-chamando': senha.status === 'chamando' }"
-            >
-              <div class="position">{{ index + 1 }}º</div>
-              <div class="info">
-                <div class="number">{{ senha.numero }}</div>
-                <div class="type" :class="senha.tipo">
-                  {{ senha.tipo === 'prioritario' ? '⭐' : '📋' }}
+        <!-- Duas Filas Laterais -->
+        <div class="queues-container">
+          <!-- Fila de Chamadas - Lado Esquerdo -->
+          <section class="queue-section left">
+            <h2>📋 Fila de Chamadas</h2>
+            <div v-if="filaChamada.length > 0" class="queue-list">
+              <div
+                v-for="(senha, index) in filaChamadaInvertida"
+                :key="senha.id"
+                class="queue-item"
+                :class="{ 'status-chamando': senha.status === 'chamando' }"
+              >
+                <div class="position">{{ index + 1 }}º</div>
+                <div class="info">
+                  <div class="number">{{ senha.numero }}</div>
+                  <div class="type" :class="senha.tipo">
+                    {{ senha.tipo === 'prioritario' ? '⭐' : '📋' }}
+                  </div>
+                </div>
+                <div class="code">{{ senha.codigo_verificacao }}</div>
+                <div class="status-badge" :class="senha.status">
+                  {{ getStatusLabel(senha.status) }}
                 </div>
               </div>
-              <div class="code">{{ senha.codigo_verificacao }}</div>
-              <div class="status-badge" :class="senha.status">
-                {{ getStatusLabel(senha.status) }}
+            </div>
+            <div v-else class="queue-empty">
+              <p>🎉 Nenhuma senha na fila de chamadas</p>
+            </div>
+          </section>
+
+          <!-- Fila Atendida - Lado Direito -->
+          <section class="queue-section right">
+            <h2>✅ Fila Atendida</h2>
+            <div v-if="filaAtendida.length > 0" class="queue-list">
+              <div
+                v-for="(senha, index) in filaAtendidaInvertida"
+                :key="senha.id"
+                class="queue-item atendido"
+              >
+                <div class="position">{{ index + 1 }}º</div>
+                <div class="info">
+                  <div class="number">{{ senha.numero }}</div>
+                  <div class="type" :class="senha.tipo">
+                    {{ senha.tipo === 'prioritario' ? '⭐' : '📋' }}
+                  </div>
+                </div>
+                <div class="code">{{ senha.codigo_verificacao }}</div>
+                <div class="atendente-info">
+                  <span class="atendente-name">{{ senha.atendente?.nome || 'N/A' }}</span>
+                  <span class="atendente-time">{{ formatarData(senha.atualizado_em) }}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div v-else class="queue-empty">
-            <p>🎉 Nenhuma senha na fila</p>
-          </div>
-        </section>
+            <div v-else class="queue-empty">
+              <p>🎉 Nenhum ticket atendido</p>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
 
@@ -127,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import axios from 'axios'
@@ -150,6 +181,24 @@ const filaStats = ref({
 
 let intervalo = null
 
+// Computed properties para separar as filas
+const filaChamada = computed(() => {
+  return fila.value.filter(senha => senha.status === 'esperando' || senha.status === 'chamando')
+})
+
+const filaAtendida = computed(() => {
+  return fila.value.filter(senha => senha.status === 'atendido')
+})
+
+// Computed properties para inverter a ordem e limitar a 5 senhas
+const filaChamadaInvertida = computed(() => {
+  return [...filaChamada.value].reverse().slice(0, 5)
+})
+
+const filaAtendidaInvertida = computed(() => {
+  return [...filaAtendida.value].reverse().slice(0, 5)
+})
+
 const getStatusLabel = (status) => {
   const labels = {
     esperando: '⏳ Esperando',
@@ -158,6 +207,15 @@ const getStatusLabel = (status) => {
     cancelado: '❌ Cancelado'
   }
   return labels[status] || status
+}
+
+const formatarData = (dataString) => {
+  if (!dataString) return ''
+  const data = new Date(dataString)
+  return data.toLocaleTimeString('pt-BR', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
 }
 
 const carregarFila = async () => {
@@ -288,7 +346,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .header {
@@ -572,11 +630,25 @@ onUnmounted(() => {
   opacity: 0.9;
 }
 
-/* Fila de Espera */
+/* Duas Filas Laterais */
+.queues-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 24px;
+  width: 100%;
+}
+
 .queue-section {
+  flex: 1;
   background: #f0f6fc;
   border-radius: 14px;
   padding: 24px;
+  min-height: 300px;
+}
+
+.queue-section.right {
+  background: #f0fdf4;
 }
 
 .queue-section h2 {
@@ -587,10 +659,15 @@ onUnmounted(() => {
   text-align: center;
 }
 
+.queue-section.right h2 {
+  color: #059669;
+}
+
 .queue-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  height: 100%;
 }
 
 .queue-item {
@@ -610,6 +687,11 @@ onUnmounted(() => {
   animation: pulse 1.5s infinite;
 }
 
+.queue-item.atendido {
+  border-left-color: #10b981;
+  background: #f0fdf4;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.8; }
@@ -620,6 +702,10 @@ onUnmounted(() => {
   font-weight: bold;
   color: #75B1EB;
   min-width: 40px;
+}
+
+.queue-item.atendido .position {
+  color: #059669;
 }
 
 .info {
@@ -679,10 +765,32 @@ onUnmounted(() => {
   50% { opacity: 0.6; }
 }
 
+.atendente-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.atendente-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+.atendente-time {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
 .queue-empty {
   text-align: center;
   padding: 30px;
   color: #4F789E;
+}
+
+.queue-section.right .queue-empty {
+  color: #059669;
 }
 
 /* Alertas */
@@ -734,8 +842,18 @@ onUnmounted(() => {
     flex-direction: column;
   }
 
+  .queues-container {
+    flex-direction: column;
+    gap: 16px;
+  }
+
   .queue-item {
     flex-wrap: wrap;
+  }
+
+  .atendente-info {
+    min-width: auto;
+    width: 100%;
   }
 }
 </style>
