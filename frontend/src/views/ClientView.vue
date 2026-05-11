@@ -141,19 +141,39 @@ const queueStore = useQueueStore()
 const tipoSelecionado = ref('normal')
 const historico = ref([])
 
-onMounted(() => {
-  // Verificar se é um callback do Google
+const processGoogleCallback = () => {
   const urlParams = new URLSearchParams(window.location.search)
   const token = urlParams.get('token')
   const user = urlParams.get('user')
   
   if (token && user) {
-    // É um callback do Google, processar
-    authStore.handleGoogleCallback()
-  } else if (!authStore.isLoggedIn) {
-    // Não está logado, redirecionar para login
-    router.push('/login')
-    return
+    try {
+      const userData = JSON.parse(decodeURIComponent(user))
+      authStore.setToken(token)
+      authStore.setUser(userData)
+      authStore.setAdmin(false) // Usuários do Google não são admin por padrão
+      
+      // Limpar URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+      
+      return true
+    } catch (error) {
+      console.error('Erro ao processar login:', error)
+      return false
+    }
+  }
+  return false
+}
+
+onMounted(() => {
+  // Verificar se é um callback do Google
+  if (!processGoogleCallback()) {
+    // Não é callback do Google, verificar se está logado
+    if (!authStore.isLoggedIn) {
+      // Não está logado, redirecionar para login
+      router.push('/login')
+      return
+    }
   }
   
   // Buscar senha ativa e histórico

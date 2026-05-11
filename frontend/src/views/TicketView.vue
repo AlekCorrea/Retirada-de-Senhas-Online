@@ -7,7 +7,7 @@
           <h1>Retirada de Senhas</h1>
         </div>
         <p class="subtitulo">Sistema de Atendimento Online</p>
-        <div class="login-section">
+        <div class="login-section" v-if="!senhaFinalizada">
           <button @click="loginComGoogle" :disabled="carregandoLogin" class="btn-google">
             <span v-if="carregandoLogin" class="spinner"></span>
             <span v-else>
