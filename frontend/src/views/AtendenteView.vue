@@ -342,7 +342,7 @@ onUnmounted(() => {
 .atendente-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
-  padding: 20px;
+  padding: 48px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -406,7 +406,6 @@ onUnmounted(() => {
 
 .main-content {
   width: 100%;
-  max-width: 640px;
 }
 
 .card-principal {
@@ -414,6 +413,7 @@ onUnmounted(() => {
   border-radius: 24px;
   padding: 48px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
 }
 
 .dashboard {
@@ -637,6 +637,7 @@ onUnmounted(() => {
   gap: 24px;
   margin-top: 24px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .queue-section {
@@ -845,6 +846,7 @@ onUnmounted(() => {
   .queues-container {
     flex-direction: column;
     gap: 16px;
+    padding: 0 28px;
   }
 
   .queue-item {

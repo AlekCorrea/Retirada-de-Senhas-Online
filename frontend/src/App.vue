@@ -102,10 +102,9 @@ export default {
 
 .main-content {
   flex: 1;
-  padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
-  width: 100%;
+  width: 90%;
 }
 
 .footer {
@@ -113,6 +112,5 @@ export default {
   color: white;
   text-align: center;
   padding: 1rem;
-  margin-top: 2rem;
 }
 </style>
