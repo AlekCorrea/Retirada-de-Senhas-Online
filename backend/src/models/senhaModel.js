@@ -4,6 +4,82 @@ const crypto = require("crypto");
 // Controle simples 3x1 em memória
 let contadorPrioritarias = 0;
 
+// Tempo médio de atendimento em minutos (estimativa)
+const TEMPO_MEDIO_ATENDIMENTO = 5;
+
+/**
+ * Calcula o tempo estimado de atendimento para uma senha na posição da fila.
+ * Considera a regra 3x1 (3 prioritárias, 1 normal).
+ * 
+ * @param {number} senhaId - ID da senha recém-criada
+ * @param {string} tipo - 'normal' ou 'prioritario'
+ * @returns {Promise<{tempoEstimadoMinutos: number, pessoasNaFrente: number}>}
+ */
+function calcularTempoEstimado(senhaId, tipo) {
+  return new Promise((resolve, reject) => {
+    // Buscar todas as senhas esperando, ordenadas por prioridade e ID
+    const sqlFila = `
+      SELECT id, tipo
+      FROM senha
+      WHERE status = 'esperando'
+      ORDER BY id ASC
+    `;
+
+    db.query(sqlFila, (err, result) => {
+      if (err) return reject(err);
+
+      const fila = result.rows;
+
+      // Simular a ordem de chamada com a regra 3x1
+      const ordemChamada = [];
+      let contadorP = 0;
+
+      // Criar uma cópia da fila para simular
+      let filaRestante = [...fila];
+
+      while (filaRestante.length > 0) {
+        let proxima = null;
+
+        if (contadorP < 3) {
+          // Priorizar prioritários
+          const idx = filaRestante.findIndex(s => s.tipo === 'prioritario');
+          if (idx !== -1) {
+            proxima = filaRestante.splice(idx, 1)[0];
+            contadorP++;
+          } else {
+            proxima = filaRestante.shift();
+            contadorP = 0;
+          }
+        } else {
+          // Forçar normal
+          const idx = filaRestante.findIndex(s => s.tipo === 'normal');
+          if (idx !== -1) {
+            proxima = filaRestante.splice(idx, 1)[0];
+            contadorP = 0;
+          } else {
+            proxima = filaRestante.shift();
+            contadorP++;
+          }
+        }
+
+        if (proxima) {
+          ordemChamada.push(proxima);
+        }
+      }
+
+      // Encontrar a posição da senha na ordem de chamada
+      const posicao = ordemChamada.findIndex(s => s.id === senhaId);
+      const pessoasNaFrente = posicao >= 0 ? posicao : 0;
+      const tempoEstimadoMinutos = pessoasNaFrente * TEMPO_MEDIO_ATENDIMENTO;
+
+      resolve({
+        tempoEstimadoMinutos,
+        pessoasNaFrente
+      });
+    });
+  });
+}
+
 // Gerar código de verificação aleatório de 8 caracteres (letras e números)
 function gerarCodigoVerificacao() {
   const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -87,26 +163,20 @@ exports.criarSenha = (tipo, deviceId) => {
 
             const novaSenhaId = insertResult.rows[0].id;
 
-            // Contar pessoas na frente
-            const sqlFila = `
-                SELECT COUNT(*) AS total
-                FROM senha
-                WHERE status = 'esperando'
-                AND id < $1
-            `;
-
-            db.query(sqlFila, [novaSenhaId], (err, fila) => {
-              if (err) return reject(err);
-
-              resolve({
-                id: novaSenhaId,
-                numero: numeroFormatado,
-                tipo,
-                status: "esperando",
-                codigo_verificacao: codigoVerificacao,
-                pessoasNaFrente: parseInt(fila.rows[0].total)
-              });
-            });
+            // Calcular tempo estimado considerando a regra 3x1
+            calcularTempoEstimado(novaSenhaId, tipo)
+              .then(({ tempoEstimadoMinutos, pessoasNaFrente }) => {
+                resolve({
+                  id: novaSenhaId,
+                  numero: numeroFormatado,
+                  tipo,
+                  status: "esperando",
+                  codigo_verificacao: codigoVerificacao,
+                  pessoasNaFrente,
+                  tempoEstimadoMinutos
+                });
+              })
+              .catch(err => reject(err));
           }
         );
       });
@@ -286,25 +356,19 @@ exports.buscarMinhaSenha = (deviceId) => {
 
       const minhaSenha = result.rows[0];
 
-      const sqlFila = `
-          SELECT COUNT(*) AS total
-          FROM senha
-          WHERE status = 'esperando'
-          AND id < $1
-      `;
-
-      db.query(sqlFila, [minhaSenha.id], (err, fila) => {
-
-        if (err) return reject(err);
-
-        resolve({
-          numero: minhaSenha.numero,
-          tipo: minhaSenha.tipo,
-          status: minhaSenha.status,
-          codigo_verificacao: minhaSenha.codigo_verificacao,
-          pessoasNaFrente: parseInt(fila.rows[0].total)
-        });
-      });
+      // Calcular tempo estimado considerando a regra 3x1
+      calcularTempoEstimado(minhaSenha.id, minhaSenha.tipo)
+        .then(({ tempoEstimadoMinutos, pessoasNaFrente }) => {
+          resolve({
+            numero: minhaSenha.numero,
+            tipo: minhaSenha.tipo,
+            status: minhaSenha.status,
+            codigo_verificacao: minhaSenha.codigo_verificacao,
+            pessoasNaFrente,
+            tempoEstimadoMinutos
+          });
+        })
+        .catch(err => reject(err));
     });
   });
 };

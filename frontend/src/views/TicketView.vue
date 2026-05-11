@@ -1,6 +1,5 @@
 <template>
   <div class="container-tela">
-    <!-- Seção principal -->
     <div class="card-principal">
       <div class="cabecalho">
         <div class="logo">
@@ -38,11 +37,7 @@
           </label>
         </div>
 
-        <button
-          @click="retirarSenha"
-          :disabled="carregando"
-          class="btn-retirar"
-        >
+        <button @click="retirarSenha" :disabled="carregando" class="btn-retirar">
           <span v-if="carregando" class="spinner"></span>
           <span v-else>
             <span class="icone-botao">🎟️</span>
@@ -65,43 +60,29 @@
           </div>
         </div>
 
-        <!-- Status da senha -->
+        <!-- Status chamando -->
         <div v-if="senhaRetirada.status === 'chamando'" class="status-chamando">
           <span class="icone-status">📢</span>
           <span class="texto-status">Sua senha está sendo chamada! Dirija-se ao atendimento.</span>
         </div>
 
-        <div class="info-senha">
-          <div class="info-item">
-            <span class="icone-info">🕐</span>
-            <span class="label-info">Horário:</span>
-            <span class="valor-info">{{ horario }}</span>
+        <!-- Resumo da previsão -->
+        <div class="previsao-resumo" :class="senhaRetirada.tipo">
+          <div class="previsao-linha">
+            <span class="previsao-icone">👥</span>
+            <span class="previsao-texto">{{ senhaRetirada.pessoasNaFrente }} {{ senhaRetirada.pessoasNaFrente === 1 ? 'senha na frente' : 'senhas na frente' }}</span>
           </div>
-          <div class="info-item">
-            <span class="icone-info">⏱️</span>
-            <span class="label-info">Tempo estimado:</span>
-            <span class="valor-info">{{ tempoEstimado }} min</span>
+          <div class="previsao-linha">
+            <span class="previsao-icone">⏱️</span>
+            <span class="previsao-texto">Tempo estimado: <strong>{{ senhaRetirada.tempoEstimadoMinutos || tempoEstimado }} min</strong></span>
           </div>
-        </div>
-
-        <div class="secao-previsao">
-          <h3>📅 Previsão de Atendimento</h3>
-          <div class="previsao-content">
-            <div class="previsao-item">
-              <span class="icone-previsao">👥</span>
-              <span class="texto-previsao">{{ senhaRetirada.pessoasNaFrente }} senhas na frente</span>
-            </div>
-            <div class="previsao-item">
-              <span class="icone-previsao">🕐</span>
-              <span class="texto-previsao">Tempo estimado: {{ tempoEstimado }} minutos</span>
-            </div>
-            <div class="previsao-item">
-              <span class="icone-previsao">📅</span>
-              <span class="texto-previsao">Previsão: ~{{ horarioPrevisao }}</span>
-            </div>
+          <div class="previsao-linha destaque">
+            <span class="previsao-icone">🕐</span>
+            <span class="previsao-texto">Previsão de chamada: <strong>{{ horarioPrevisao }}</strong></span>
           </div>
         </div>
 
+        <!-- Código de verificação -->
         <div class="secao-codigo">
           <h3>🔐 Código de Verificação</h3>
           <div class="codigo-verificacao">
@@ -120,7 +101,7 @@
         </div>
       </div>
 
-      <!-- Senha finalizada - mostrar opção de retirar nova -->
+      <!-- Senha finalizada -->
       <div v-else class="secao-finalizada">
         <div class="mensagem-finalizada">
           <span class="icone-finalizada">✅</span>
@@ -134,21 +115,6 @@
         </button>
       </div>
     </div>
-
-    <!-- Status da fila -->
-    <div class="card-fila">
-      <h3>📊 Status da Fila</h3>
-      <div class="estatisticas">
-        <div class="stat-item">
-          <div class="stat-valor">{{ totalSenhas }}</div>
-          <div class="stat-label">🎫 Senhas Esperando</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-valor">{{ tempoMedio }}</div>
-          <div class="stat-label">⏱️ Tempo Médio (min)</div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -160,17 +126,13 @@ const tipo = ref('normal')
 const carregando = ref(false)
 const erro = ref('')
 const senhaRetirada = ref(null)
-const totalSenhas = ref(0)
-const tempoMedio = ref(15)
 const tempoEstimado = ref(15)
 const horario = ref('')
 const deviceId = ref('')
 const senhaFinalizada = ref(false)
 
-let intervaloFila = null
 let intervaloMinhaSenha = null
 
-// Carregar estado salvo no localStorage
 const carregarEstadoSalvo = () => {
   const salva = localStorage.getItem('senhaRetirada')
   if (salva) {
@@ -181,12 +143,9 @@ const carregarEstadoSalvo = () => {
       console.error('Erro ao carregar estado salvo:', e)
     }
   }
-
-  // Carregar deviceId salvo
   deviceId.value = localStorage.getItem('deviceId') || ''
 }
 
-// Salvar estado no localStorage
 const salvarEstado = () => {
   if (senhaRetirada.value) {
     localStorage.setItem('senhaRetirada', JSON.stringify(senhaRetirada.value))
@@ -194,7 +153,6 @@ const salvarEstado = () => {
   }
 }
 
-// Limpar estado da senha (após atendimento ou cancelamento)
 const limparEstadoSenha = () => {
   senhaRetirada.value = null
   senhaFinalizada.value = false
@@ -203,47 +161,43 @@ const limparEstadoSenha = () => {
   localStorage.removeItem('horario')
 }
 
-// Voltar para tela de retirar senha
 const voltarParaRetirar = () => {
   limparEstadoSenha()
 }
 
-// Calcular horário previsto de atendimento
 const horarioPrevisao = computed(() => {
-  if (!senhaRetirada.value || !senhaRetirada.value.pessoasNaFrente) return '--:--'
+  if (!senhaRetirada.value) return '--:--'
   const agora = new Date()
-  const minutos = senhaRetirada.value.pessoasNaFrente * 5
+  const minutos = senhaRetirada.value.tempoEstimadoMinutos ||
+                  (senhaRetirada.value.pessoasNaFrente || 0) * 5
   agora.setMinutes(agora.getMinutes() + minutos)
   return agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 })
 
-// Verificar status da minha senha via API pública
 const verificarMinhaSenha = async () => {
   if (!deviceId.value || !senhaRetirada.value) return
 
   try {
     const resposta = await axios.get(`/api/minha-senha/publica?deviceId=${deviceId.value}`)
-    
+
     if (resposta.data && resposta.data.mensagem === 'Nenhuma senha ativa encontrada') {
-      // Senha foi finalizada ou cancelada
       senhaFinalizada.value = true
-      // Parar o polling
       if (intervaloMinhaSenha) {
         clearInterval(intervaloMinhaSenha)
         intervaloMinhaSenha = null
       }
-      // Limpar localStorage após um breve delay para o usuário ver a mensagem
       setTimeout(() => {
         limparEstadoSenha()
       }, 5000)
     } else if (resposta.data && resposta.data.numero) {
-      // Atualizar dados da senha (status, pessoas na frente, etc.)
       senhaRetirada.value = {
         ...senhaRetirada.value,
         status: resposta.data.status,
-        pessoasNaFrente: resposta.data.pessoasNaFrente
+        pessoasNaFrente: resposta.data.pessoasNaFrente,
+        tempoEstimadoMinutos: resposta.data.tempoEstimadoMinutos
       }
-      tempoEstimado.value = (resposta.data.pessoasNaFrente || 0) * 5
+      tempoEstimado.value = resposta.data.tempoEstimadoMinutos ||
+                            (resposta.data.pessoasNaFrente || 0) * 5
       salvarEstado()
     }
   } catch (error) {
@@ -251,21 +205,13 @@ const verificarMinhaSenha = async () => {
   }
 }
 
-// Iniciar polling da senha
 const iniciarPollingSenha = () => {
   if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
   intervaloMinhaSenha = setInterval(verificarMinhaSenha, 5000)
 }
 
-// Carregar status da fila ao montar o componente
 onMounted(() => {
   carregarEstadoSalvo()
-  carregarStatusFila()
-  
-  // Atualizar status da fila a cada 10 segundos
-  intervaloFila = setInterval(carregarStatusFila, 10000)
-  
-  // Se tem senha retirada, verificar status a cada 5 segundos
   if (senhaRetirada.value) {
     iniciarPollingSenha()
   }
@@ -273,28 +219,14 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   salvarEstado()
-  if (intervaloFila) clearInterval(intervaloFila)
   if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
 })
-
-const carregarStatusFila = async () => {
-  try {
-    const resposta = await axios.get('/api/senhas/status')
-    if (resposta.data) {
-      totalSenhas.value = resposta.data.esperando || 0
-      tempoMedio.value = Math.ceil((resposta.data.esperando || 0) * 5)
-    }
-  } catch (error) {
-    console.log('Não foi possível carregar status da fila')
-  }
-}
 
 const retirarSenha = async () => {
   carregando.value = true
   erro.value = ''
 
   try {
-    // Se já existe deviceId salvo, usar ele
     if (!deviceId.value) {
       deviceId.value = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
       localStorage.setItem('deviceId', deviceId.value)
@@ -306,13 +238,10 @@ const retirarSenha = async () => {
 
     senhaRetirada.value = resposta.data
     horario.value = new Date().toLocaleTimeString('pt-BR')
-    // Calcular tempo estimado baseado em pessoas na frente
-    tempoEstimado.value = (senhaRetirada.value.pessoasNaFrente || 0) * 5
+    tempoEstimado.value = resposta.data.tempoEstimadoMinutos ||
+                          (resposta.data.pessoasNaFrente || 0) * 5
 
-    // Salvar estado
     salvarEstado()
-
-    // Iniciar polling para verificar quando a senha for atendida
     iniciarPollingSenha()
 
   } catch (error) {
@@ -342,7 +271,6 @@ const retirarSenha = async () => {
   max-width: 640px;
   width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-  margin-bottom: 20px;
 }
 
 .cabecalho {
@@ -507,7 +435,7 @@ const retirarSenha = async () => {
 }
 
 .numero-senha {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .identificador {
@@ -576,72 +504,57 @@ const retirarSenha = async () => {
   color: #92400e;
 }
 
-.info-senha {
-  display: flex;
-  justify-content: center;
-  gap: 32px;
-  margin-bottom: 28px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.icone-info {
-  font-size: 1.5rem;
-}
-
-.label-info {
-  font-size: 0.8rem;
-  color: #888;
-  font-weight: 500;
-}
-
-.valor-info {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #333;
-}
-
-/* Previsão de atendimento */
-.secao-previsao {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  padding: 20px;
+/* Resumo da previsão - card único com todas as informações */
+.previsao-resumo {
   border-radius: 14px;
+  padding: 20px;
   margin-bottom: 28px;
-  text-align: center;
+  text-align: left;
 }
 
-.secao-previsao h3 {
-  margin: 0 0 12px;
-  color: #1e40af;
-  font-size: 1rem;
+.previsao-resumo.normal {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 2px solid #2196f3;
 }
 
-.previsao-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.previsao-resumo.prioritario {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border: 2px solid #ff9800;
 }
 
-.previsao-item {
+.previsao-linha {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 8px 0;
 }
 
-.icone-previsao {
-  font-size: 1.2rem;
+.previsao-linha + .previsao-linha {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.texto-previsao {
+.previsao-linha.destaque {
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 2px solid rgba(0, 0, 0, 0.12);
+}
+
+.previsao-icone {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.previsao-texto {
   font-size: 0.95rem;
-  color: #1e3a8a;
   font-weight: 500;
+}
+
+.previsao-resumo.normal .previsao-texto {
+  color: #1e3a8a;
+}
+
+.previsao-resumo.prioritario .previsao-texto {
+  color: #9a3412;
 }
 
 /* Código de verificação */
@@ -686,7 +599,6 @@ const retirarSenha = async () => {
   background: #f8f9ff;
   padding: 20px;
   border-radius: 14px;
-  margin-bottom: 28px;
   text-align: left;
 }
 
@@ -740,48 +652,6 @@ const retirarSenha = async () => {
   font-size: 0.95rem !important;
 }
 
-/* Card da fila */
-.card-fila {
-  background: white;
-  border-radius: 18px;
-  padding: 24px;
-  max-width: 640px;
-  width: 100%;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-}
-
-.card-fila h3 {
-  margin: 0 0 20px;
-  color: #333;
-  font-size: 1.1rem;
-  text-align: center;
-}
-
-.estatisticas {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.stat-item {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-  border-radius: 14px;
-  text-align: center;
-  color: white;
-}
-
-.stat-valor {
-  font-size: 2.5rem;
-  font-weight: 800;
-}
-
-.stat-label {
-  font-size: 0.85rem;
-  opacity: 0.9;
-  margin-top: 4px;
-}
-
 @media (max-width: 640px) {
   .card-principal {
     padding: 28px;
@@ -799,11 +669,6 @@ const retirarSenha = async () => {
   .texto-codigo {
     font-size: 1.5rem;
     letter-spacing: 2px;
-  }
-
-  .info-senha {
-    flex-direction: column;
-    gap: 16px;
   }
 
   .status-chamando {

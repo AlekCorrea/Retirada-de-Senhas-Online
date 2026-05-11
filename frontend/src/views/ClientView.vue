@@ -39,7 +39,9 @@
         <div class="ticket-details">
           <div class="detail-row">
             <span class="label">Tipo:</span>
-            <span class="value">{{ queueStore.minhaSenha.tipo === 'prioritario' ? 'Prioritário' : 'Normal' }}</span>
+            <span class="value" :class="queueStore.minhaSenha.tipo">
+              {{ queueStore.minhaSenha.tipo === 'prioritario' ? '⭐ Prioritário' : '📋 Normal' }}
+            </span>
           </div>
 
           <div class="detail-row">
@@ -51,12 +53,27 @@
 
           <div class="detail-row">
             <span class="label">Posição na fila:</span>
-            <span class="value">{{ queueStore.minhaSenha.pessoasNaFrente || 0 }}</span>
+            <span class="value">{{ queueStore.minhaSenha.pessoasNaFrente || 0 }} {{ (queueStore.minhaSenha.pessoasNaFrente || 0) === 1 ? 'pessoa' : 'pessoas' }} na frente</span>
           </div>
 
           <div class="detail-row">
             <span class="label">Tempo estimado:</span>
             <span class="value">{{ queueStore.minhaSenha.tempoEstimadoMinutos || 0 }} min</span>
+          </div>
+
+          <div class="detail-row highlight">
+            <span class="label">🕐 Horário estimado para atendimento:</span>
+            <span class="value time-estimated">{{ calcularHorarioEstimado() }}</span>
+          </div>
+        </div>
+
+        <div class="status-bar" :class="queueStore.minhaSenha.tipo">
+          <div class="status-icon">
+            {{ queueStore.minhaSenha.tipo === 'prioritario' ? '⭐' : '📋' }}
+          </div>
+          <div class="status-text">
+            <strong>{{ queueStore.minhaSenha.tipo === 'prioritario' ? 'Atendimento Prioritário' : 'Atendimento Normal' }}</strong>
+            <span>Previsão de chamada: <strong>{{ calcularHorarioEstimado() }}</strong></span>
           </div>
         </div>
 
@@ -120,6 +137,17 @@ const getStatusLabel = (status) => {
     'cancelado': '✗ Cancelado'
   }
   return labels[status] || status
+}
+
+const calcularHorarioEstimado = () => {
+  const tempoEstimado = queueStore.minhaSenha?.tempoEstimadoMinutos || 0
+  const agora = new Date()
+  const horarioEstimado = new Date(agora.getTime() + tempoEstimado * 60000)
+  
+  return horarioEstimado.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 </script>
 
@@ -228,7 +256,7 @@ h1 {
   background: #f9f9f9;
   padding: 20px;
   border-radius: 10px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   text-align: left;
 }
 
@@ -243,6 +271,14 @@ h1 {
   border-bottom: none;
 }
 
+.detail-row.highlight {
+  background: #fff3cd;
+  margin: 0 -20px;
+  padding: 15px 20px;
+  border-radius: 8px;
+  border: 1px solid #ffc107;
+}
+
 .label {
   font-weight: 500;
   color: #666;
@@ -251,6 +287,19 @@ h1 {
 .value {
   color: #333;
   font-weight: 600;
+}
+
+.value.normal {
+  color: #2196f3;
+}
+
+.value.prioritario {
+  color: #ff9800;
+}
+
+.value.time-estimated {
+  color: #e65100;
+  font-size: 1.1rem;
 }
 
 .value.chamando {
@@ -263,6 +312,55 @@ h1 {
 
 .value.cancelado {
   color: #f44336;
+}
+
+/* Status bar da fila */
+.status-bar {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.status-bar.normal {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 2px solid #2196f3;
+}
+
+.status-bar.prioritario {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border: 2px solid #ff9800;
+}
+
+.status-icon {
+  font-size: 2rem;
+  margin-right: 15px;
+}
+
+.status-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.status-text strong {
+  font-size: 1rem;
+  color: #333;
+}
+
+.status-text span {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 3px;
+}
+
+.status-bar.normal .status-text strong {
+  color: #1565c0;
+}
+
+.status-bar.prioritario .status-text strong {
+  color: #e65100;
 }
 
 .btn-lg {
