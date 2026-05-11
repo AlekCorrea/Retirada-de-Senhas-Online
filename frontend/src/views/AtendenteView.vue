@@ -2,7 +2,10 @@
   <div class="atendente-container">
     <header class="header">
       <div class="header-content">
-        <h1>👤 Painel do Atendente</h1>
+        <div class="logo">
+          <span class="icone-senha">👤</span>
+          <h1>Painel do Atendente</h1>
+        </div>
         <div class="user-info">
           <span>{{ authStore.user?.nome }}</span>
           <button @click="logout" class="btn-logout">Sair</button>
@@ -11,7 +14,7 @@
     </header>
 
     <main class="main-content">
-      <div class="dashboard">
+      <div class="card-principal">
         <!-- Botão Chamar Próxima - Destaque -->
         <section class="action-section">
           <button
@@ -19,8 +22,11 @@
             :disabled="loading"
             class="btn-chamar-proxima"
           >
-            <span class="icon">📢</span>
-            <span class="text">{{ loading ? 'Chamando...' : 'Chamar Próxima Senha' }}</span>
+            <span v-if="loading" class="spinner"></span>
+            <span v-else>
+              <span class="icon">📢</span>
+              <span class="text">Chamar Próxima Senha</span>
+            </span>
           </button>
         </section>
 
@@ -28,19 +34,22 @@
         <section class="current-ticket-section">
           <h2>🎫 Senha em Atendimento</h2>
           <div v-if="senhaAtual" class="ticket-card">
-            <div class="ticket-number">{{ senhaAtual.numero }}</div>
-            <div class="ticket-type" :class="senhaAtual.tipo">
-              {{ senhaAtual.tipo === 'prioritario' ? '⭐ Prioritária' : '📋 Normal' }}
+            <div class="numero-senha">
+              <div class="identificador">Senha atual</div>
+              <div class="numero">{{ senhaAtual.numero }}</div>
+              <div class="tipo-badge" :class="senhaAtual.tipo">
+                {{ senhaAtual.tipo === 'prioritario' ? '⭐ Prioritária' : '📋 Normal' }}
+              </div>
             </div>
             <div class="ticket-details">
-              <p><strong>Código:</strong> {{ senhaAtual.codigo_verificacao }}</p>
+              <p><strong>Código de verificação:</strong> {{ senhaAtual.codigo_verificacao }}</p>
             </div>
             <div class="ticket-actions">
               <button @click="finalizarAtendimento" class="btn btn-success">
-                ✓ Finalizar
+                ✓ Finalizar Atendimento
               </button>
               <button @click="cancelarSenha" class="btn btn-danger">
-                ✗ Cancelar
+                ✗ Cancelar Senha
               </button>
             </div>
           </div>
@@ -274,27 +283,45 @@ onUnmounted(() => {
 <style scoped>
 .atendente-container {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 640px;
 }
 
 .header-content {
-  max-width: 1200px;
-  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.icone-senha {
+  font-size: 2.5rem;
+}
+
 .header h1 {
-  margin: 0;
   font-size: 1.8rem;
+  margin: 0;
+  color: #263A4D;
+  font-weight: 700;
 }
 
 .user-info {
@@ -304,23 +331,31 @@ onUnmounted(() => {
 }
 
 .btn-logout {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid white;
+  background: #f5f9fe;
+  color: #3B5975;
+  border: 2px solid #75B1EB;
   padding: 8px 16px;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
+  font-weight: 600;
 }
 
 .btn-logout:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: #e8f2fb;
+  border-color: #6397C7;
 }
 
 .main-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 30px 20px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.card-principal {
+  background: white;
+  border-radius: 24px;
+  padding: 48px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
 }
 
 .dashboard {
@@ -336,76 +371,114 @@ onUnmounted(() => {
 
 .btn-chamar-proxima {
   width: 100%;
-  padding: 40px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  padding: 20px;
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
   color: white;
   border: none;
-  border-radius: 12px;
-  font-size: 1.5rem;
-  font-weight: bold;
+  border-radius: 14px;
+  font-size: 1.2rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .btn-chamar-proxima:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(117, 177, 235, 0.4);
 }
 
 .btn-chamar-proxima:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
 .icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
 }
 
 /* Senha em Atendimento */
 .current-ticket-section {
-  background: white;
-  border-radius: 12px;
+  background: #f0f6fc;
+  border-radius: 14px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .current-ticket-section h2 {
   margin-top: 0;
-  color: #333;
+  color: #3B5975;
   font-size: 1.2rem;
-}
-
-.ticket-card {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
-  padding: 30px;
-  border-radius: 12px;
+  font-weight: 600;
   text-align: center;
 }
 
-.ticket-number {
-  font-size: 4rem;
-  font-weight: bold;
-  margin-bottom: 10px;
+.ticket-card {
+  background: linear-gradient(135deg, #d6e7f7 0%, #b5d5f0 100%);
+  border: 2px solid #6397C7;
+  color: #3B5975;
+  padding: 30px;
+  border-radius: 14px;
+  text-align: center;
 }
 
-.ticket-type {
-  display: inline-block;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
+.numero-senha {
   margin-bottom: 20px;
+}
+
+.identificador {
+  font-size: 0.9rem;
+  color: #4F789E;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.numero {
+  font-size: 4rem;
+  font-weight: 800;
+  color: #3B5975;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.tipo-badge {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 0.9rem;
   font-weight: 600;
+}
+
+.tipo-badge.normal {
+  background: #eaf8e5;
+  color: #4a9e2e;
+}
+
+.tipo-badge.prioritario {
+  background: #fef7e0;
+  color: #b8860b;
 }
 
 .ticket-details {
   text-align: left;
   margin: 20px 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.5);
   padding: 15px;
   border-radius: 8px;
 }
@@ -452,7 +525,7 @@ onUnmounted(() => {
 .no-ticket {
   text-align: center;
   padding: 40px 20px;
-  color: #999;
+  color: #4F789E;
 }
 
 .no-ticket p {
@@ -461,16 +534,17 @@ onUnmounted(() => {
 
 /* Estatísticas */
 .stats-section {
-  background: white;
-  border-radius: 12px;
+  background: #f0f6fc;
+  border-radius: 14px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .stats-section h2 {
   margin-top: 0;
-  color: #333;
+  color: #3B5975;
   font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .stats-grid {
@@ -480,7 +554,7 @@ onUnmounted(() => {
 }
 
 .stat-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
   color: white;
   padding: 20px;
   border-radius: 10px;
@@ -500,16 +574,17 @@ onUnmounted(() => {
 
 /* Fila de Espera */
 .queue-section {
-  background: white;
-  border-radius: 12px;
+  background: #f0f6fc;
+  border-radius: 14px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .queue-section h2 {
   margin-top: 0;
-  color: #333;
+  color: #3B5975;
   font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .queue-list {
@@ -523,9 +598,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 15px;
   padding: 16px;
-  background: #f9fafb;
+  background: white;
   border-radius: 8px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #75B1EB;
   transition: all 0.3s;
 }
 
@@ -543,7 +618,7 @@ onUnmounted(() => {
 .position {
   font-size: 1.2rem;
   font-weight: bold;
-  color: #667eea;
+  color: #75B1EB;
   min-width: 40px;
 }
 
@@ -556,7 +631,7 @@ onUnmounted(() => {
 .number {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #333;
+  color: #3B5975;
 }
 
 .type {
@@ -567,7 +642,7 @@ onUnmounted(() => {
   flex: 1;
   font-family: monospace;
   font-weight: 500;
-  color: #333;
+  color: #3B5975;
 }
 
 .status-badge {
@@ -607,7 +682,7 @@ onUnmounted(() => {
 .queue-empty {
   text-align: center;
   padding: 30px;
-  color: #999;
+  color: #4F789E;
 }
 
 /* Alertas */
@@ -634,18 +709,25 @@ onUnmounted(() => {
 }
 
 /* Responsivo */
-@media (max-width: 768px) {
-  .header-content {
-    flex-direction: column;
-    gap: 15px;
+@media (max-width: 640px) {
+  .header {
+    padding: 20px;
+  }
+
+  .card-principal {
+    padding: 28px;
+  }
+
+  .header h1 {
+    font-size: 1.5rem;
+  }
+
+  .numero {
+    font-size: 3rem;
   }
 
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .ticket-number {
-    font-size: 3rem;
   }
 
   .ticket-actions {
