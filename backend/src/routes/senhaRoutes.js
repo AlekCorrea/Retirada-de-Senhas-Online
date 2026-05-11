@@ -35,6 +35,9 @@ router.get("/minha-senha", auth, controller.minhaSenha);
 // cancelar minha senha
 router.put("/minha-senha/cancelar", auth, controller.cancelarMinhaSenha);
 
+// histórico de senhas do usuário
+router.get("/meu-historico", auth, controller.meuHistorico);
+
 /* ==========================================
    ADMIN
 ========================================== */

@@ -195,3 +195,24 @@ exports.statusFilaPublica = async (req, res) => {
     });
   }
 };
+
+// Endpoint para buscar histórico de senhas do usuário
+exports.meuHistorico = async (req, res) => {
+  try {
+    const { deviceId } = req.query;
+
+    if (!deviceId) {
+      return res.status(400).json({
+        erro: "deviceId é obrigatório"
+      });
+    }
+
+    const historico = await model.buscarHistoricoSenhas(deviceId);
+    res.json(historico);
+
+  } catch (err) {
+    res.status(500).json({
+      erro: err.message
+    });
+  }
+};

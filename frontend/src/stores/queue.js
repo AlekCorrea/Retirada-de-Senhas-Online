@@ -118,6 +118,23 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
+  const fetchHistoricoSenhas = async (token) => {
+    loading.value = true
+    error.value = null
+    try {
+      const deviceId = getDeviceId()
+      const response = await axios.get(`${API_URL}/meu-historico?deviceId=${deviceId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     senhas,
     minhaSenha,
@@ -128,6 +145,7 @@ export const useQueueStore = defineStore('queue', () => {
     criarSenha,
     chamarProxima,
     finalizarSenha,
-    cancelarSenha
+    cancelarSenha,
+    fetchHistoricoSenhas
   }
 })

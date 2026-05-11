@@ -1,101 +1,131 @@
 <template>
   <div class="client-container">
-    <div class="client-card">
-      <div class="header-section">
-        <h1>📝 Gerenciar Minha Senha</h1>
-        <div class="logout-section">
-          <button @click="logout" class="btn-logout">
-            <span class="icone-logout">🚪</span>
-            Sair
+    <header class="header">
+      <div class="header-content">
+        <div class="logo">
+          <span class="icone-senha">👤</span>
+          <h1>Área do Cliente</h1>
+        </div>
+        <div class="user-info">
+          <span>{{ authStore.user?.name || 'Usuário' }}</span>
+          <button @click="logout" class="btn-logout">Sair</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="card-principal">
+        <!-- Sem senha retirada -->
+        <div v-if="!queueStore.minhaSenha" class="secao-formulario">
+          <h2>Escolha o tipo de atendimento:</h2>
+
+          <div class="opcoes-tipo">
+            <label class="opcao-tipo" :class="{ selecionado: tipoSelecionado === 'normal' }">
+              <input v-model="tipoSelecionado" type="radio" value="normal" />
+              <div class="conteudo-opcao">
+                <span class="icone-opcao">👤</span>
+                <div class="texto-opcao">
+                  <span class="titulo-opcao">Atendimento Normal</span>
+                  <span class="descricao-opcao">Fila padrão</span>
+                </div>
+              </div>
+            </label>
+
+            <label class="opcao-tipo" :class="{ selecionado: tipoSelecionado === 'prioritario' }">
+              <input v-model="tipoSelecionado" type="radio" value="prioritario" />
+              <div class="conteudo-opcao">
+                <span class="icone-opcao">♿</span>
+                <div class="texto-opcao">
+                  <span class="titulo-opcao">Atendimento Prioritário</span>
+                  <span class="descricao-opcao">Idosos, gestantes, PCD</span>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <button @click="criarSenha" :disabled="queueStore.loading" class="btn-retirar">
+            <span v-if="queueStore.loading" class="spinner"></span>
+            <span v-else>
+              <span class="icone-botao">🎟️</span>
+              Retirar Senha
+            </span>
+          </button>
+
+          <div v-if="queueStore.error" class="alerta-erro">
+            ⚠️ {{ queueStore.error }}
+          </div>
+        </div>
+
+        <!-- Com senha retirada - aguardando atendimento -->
+        <div v-else class="secao-sucesso">
+          <div class="numero-senha">
+            <div class="identificador">Sua senha</div>
+            <div class="numero">{{ queueStore.minhaSenha.numero }}</div>
+            <div class="tipo-badge" :class="queueStore.minhaSenha.tipo">
+              {{ queueStore.minhaSenha.tipo === 'prioritario' ? '⭐ Prioritário' : '👤 Normal' }}
+            </div>
+          </div>
+
+          <!-- Status chamando -->
+          <div v-if="queueStore.minhaSenha.status === 'chamando'" class="status-chamando">
+            <span class="icone-status">📢</span>
+            <span class="texto-status">Sua senha está sendo chamada! Dirija-se ao atendimento.</span>
+          </div>
+
+          <!-- Resumo da previsão -->
+          <div class="previsao-resumo" :class="queueStore.minhaSenha.tipo">
+            <div class="previsao-linha">
+              <span class="previsao-icone">👥</span>
+              <span class="previsao-texto">{{ queueStore.minhaSenha.pessoasNaFrente || 0 }} {{ (queueStore.minhaSenha.pessoasNaFrente || 0) === 1 ? 'pessoa na frente' : 'pessoas na frente' }}</span>
+            </div>
+            <div class="previsao-linha">
+              <span class="previsao-icone">⏱️</span>
+              <span class="previsao-texto">Tempo estimado: <strong>{{ queueStore.minhaSenha.tempoEstimadoMinutos || 0 }} min</strong></span>
+            </div>
+            <div class="previsao-linha destaque">
+              <span class="previsao-icone">🕐</span>
+              <span class="previsao-texto">Previsão de chamada: <strong>{{ calcularHorarioEstimado() }}</strong></span>
+            </div>
+          </div>
+
+          <button 
+            @click="cancelarSenha" 
+            :disabled="queueStore.loading || queueStore.minhaSenha.status === 'chamando'"
+            class="btn btn-danger"
+          >
+            ✗ Cancelar Senha
           </button>
         </div>
+
+        <!-- Seção de Histórico de Senhas -->
+        <div class="history-section">
+          <h2>📋 Meu Histórico de Senhas</h2>
+          <div v-if="queueStore.loading && !historico.length" class="loading">
+            <p>Carregando histórico...</p>
+          </div>
+          <div v-else-if="historico.length === 0" class="empty-history">
+            <p>Nenhuma senha no histórico</p>
+          </div>
+          <div v-else class="history-list">
+            <div 
+              v-for="senha in historico" 
+              :key="senha.id" 
+              class="history-item"
+              :class="senha.status"
+            >
+              <div class="history-number">{{ senha.numero }}</div>
+              <div class="history-details">
+                <div class="history-type">{{ senha.tipo === 'prioritario' ? 'Prioritário' : 'Normal' }}</div>
+                <div class="history-status">{{ getStatusLabel(senha.status) }}</div>
+                <div class="history-date">{{ formatarData(senha.created_at) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+    </main>
 
-      <div v-if="!queueStore.minhaSenha" class="no-ticket">
-        <p>Você não possui uma senha ativa</p>
-        
-        <div class="ticket-type-selector">
-          <h3>Selecione o tipo de atendimento:</h3>
-          
-          <label class="radio-option">
-            <input v-model="tipoSelecionado" type="radio" value="normal" />
-            <span>
-              <strong>Atendimento Normal</strong>
-              <small>Fila padrão</small>
-            </span>
-          </label>
-
-          <label class="radio-option">
-            <input v-model="tipoSelecionado" type="radio" value="prioritario" />
-            <span>
-                <strong>Atendimento Prioritário</strong>
-                <small>Idosos, gestantes, PCD</small>
-            </span>
-          </label>
-        </div>
-
-        <button @click="criarSenha" :disabled="queueStore.loading" class="btn btn-success btn-lg">
-          {{ queueStore.loading ? 'Criando...' : '✓ Retirar Senha' }}
-        </button>
-      </div>
-
-      <div v-else class="ticket-info">
-        <div class="ticket-display">
-          <div class="ticket-number">{{ queueStore.minhaSenha.numero }}</div>
-        </div>
-
-        <div class="ticket-details">
-          <div class="detail-row">
-            <span class="label">Tipo:</span>
-            <span class="value" :class="queueStore.minhaSenha.tipo">
-              {{ queueStore.minhaSenha.tipo === 'prioritario' ? '⭐ Prioritário' : '📋 Normal' }}
-            </span>
-          </div>
-
-          <div class="detail-row">
-            <span class="label">Status:</span>
-            <span class="value" :class="queueStore.minhaSenha.status">
-              {{ getStatusLabel(queueStore.minhaSenha.status) }}
-            </span>
-          </div>
-
-          <div class="detail-row">
-            <span class="label">Posição na fila:</span>
-            <span class="value">{{ queueStore.minhaSenha.pessoasNaFrente || 0 }} {{ (queueStore.minhaSenha.pessoasNaFrente || 0) === 1 ? 'pessoa' : 'pessoas' }} na frente</span>
-          </div>
-
-          <div class="detail-row">
-            <span class="label">Tempo estimado:</span>
-            <span class="value">{{ queueStore.minhaSenha.tempoEstimadoMinutos || 0 }} min</span>
-          </div>
-
-          <div class="detail-row highlight">
-            <span class="label">🕐 Horário estimado para atendimento:</span>
-            <span class="value time-estimated">{{ calcularHorarioEstimado() }}</span>
-          </div>
-        </div>
-
-        <div class="status-bar" :class="queueStore.minhaSenha.tipo">
-          <div class="status-icon">
-            {{ queueStore.minhaSenha.tipo === 'prioritario' ? '⭐' : '📋' }}
-          </div>
-          <div class="status-text">
-            <strong>{{ queueStore.minhaSenha.tipo === 'prioritario' ? 'Atendimento Prioritário' : 'Atendimento Normal' }}</strong>
-            <span>Previsão de chamada: <strong>{{ calcularHorarioEstimado() }}</strong></span>
-          </div>
-        </div>
-
-        <button 
-          @click="cancelarSenha" 
-          :disabled="queueStore.loading || queueStore.minhaSenha.status === 'chamando'"
-          class="btn btn-danger btn-lg"
-        >
-          {{ queueStore.loading ? 'Cancelando...' : '✗ Cancelar Senha' }}
-        </button>
-      </div>
-
-      <router-link to="/" class="back-link">← Voltar</router-link>
-    </div>
+    <router-link to="/" class="back-link">← Voltar</router-link>
   </div>
 </template>
 
@@ -109,6 +139,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const queueStore = useQueueStore()
 const tipoSelecionado = ref('normal')
+const historico = ref([])
 
 onMounted(() => {
   // Verificar se é um callback do Google
@@ -125,14 +156,28 @@ onMounted(() => {
     return
   }
   
-  queueStore.fetchMinhaSenha(authStore.token)
+  // Buscar senha ativa e histórico
+  Promise.all([
+    queueStore.fetchMinhaSenha(authStore.token),
+    carregarHistorico()
+  ])
 })
+
+const carregarHistorico = async () => {
+  try {
+    historico.value = await queueStore.fetchHistoricoSenhas(authStore.token)
+  } catch (error) {
+    console.error('Erro ao carregar histórico:', error)
+  }
+}
 
 const criarSenha = async () => {
   try {
     await queueStore.criarSenha(tipoSelecionado.value, authStore.token)
+    // Recarregar histórico após criar nova senha
+    await carregarHistorico()
   } catch (error) {
-    alert('Erro ao criar senha: ' + error.message)
+    // O erro já é tratado no store e exibido na interface
   }
 }
 
@@ -140,9 +185,10 @@ const cancelarSenha = async () => {
   if (confirm('Tem certeza que deseja cancelar sua senha?')) {
     try {
       await queueStore.cancelarSenha(authStore.token)
-      alert('Senha cancelada com sucesso')
+      // Recarregar histórico após cancelar senha
+      await carregarHistorico()
     } catch (error) {
-      alert('Erro ao cancelar senha: ' + error.message)
+      // O erro já é tratado no store e exibido na interface
     }
   }
 }
@@ -171,274 +217,517 @@ const calcularHorarioEstimado = () => {
     minute: '2-digit'
   })
 }
+
+const formatarData = (dataString) => {
+  const data = new Date(dataString)
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 </script>
 
 <style scoped>
 .client-container {
   min-height: 100vh;
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
+  padding: 48px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  justify-content: flex-start;
 }
 
-.client-card {
+.header {
   background: white;
-  border-radius: 15px;
-  padding: 40px;
-  max-width: 500px;
+  border-radius: 24px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 640px;
 }
 
-.header-section {
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
 }
 
-h1 {
-  margin: 0;
-  color: #333;
-  font-size: 1.8rem;
-}
-
-.logout-section {
+.logo {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.icone-senha {
+  font-size: 2.5rem;
+}
+
+.header h1 {
+  font-size: 1.8rem;
+  margin: 0;
+  color: #263A4D;
+  font-weight: 700;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
 }
 
 .btn-logout {
-  padding: 10px 16px;
-  background: #f44336;
+  background: #f5f9fe;
+  color: #3B5975;
+  border: 2px solid #75B1EB;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+}
+
+.btn-logout:hover {
+  background: #e8f2fb;
+  border-color: #6397C7;
+}
+
+.main-content {
+  width: 100%;
+}
+
+.card-principal {
+  background: white;
+  border-radius: 24px;
+  padding: 48px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 640px;
+}
+
+.secao-formulario h2 {
+  font-size: 1.2rem;
+  margin: 0 0 24px;
+  color: #3B5975;
+  text-align: center;
+  font-weight: 600;
+}
+
+.opcoes-tipo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.opcao-tipo {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  border: 2px solid #75B1EB;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f5f9fe;
+}
+
+.opcao-tipo:hover {
+  border-color: #75B1EB;
+  background: #e8f2fb;
+}
+
+.opcao-tipo.selecionado {
+  border-color: #6397C7;
+  background: #e0edf7;
+}
+
+.opcao-tipo input {
+  margin-right: 14px;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  accent-color: #75B1EB;
+}
+
+.conteudo-opcao {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.icone-opcao {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.texto-opcao {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.titulo-opcao {
+  font-weight: 600;
+  color: #3B5975;
+  font-size: 1rem;
+}
+
+.descricao-opcao {
+  color: #4F789E;
+  font-size: 0.85rem;
+}
+
+.btn-retirar {
+  width: 100%;
+  padding: 20px;
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  border-radius: 14px;
+  font-size: 1.2rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
 }
 
-.btn-logout:hover {
-  background: #d32f2f;
+.btn-retirar:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+  box-shadow: 0 12px 24px rgba(117, 177, 235, 0.4);
 }
 
-.icone-logout {
-  font-size: 1rem;
+.btn-retirar:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-.no-ticket {
+.icone-botao {
+  font-size: 1.5rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+.alerta-erro {
+  margin-top: 16px;
+  padding: 14px;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 0.9rem;
+  border: 1px solid #fca5a5;
+}
+
+/* Seção de sucesso */
+.secao-sucesso {
   text-align: center;
 }
 
-.no-ticket > p {
-  color: #666;
-  margin-bottom: 30px;
-  font-size: 1.1rem;
+.numero-senha {
+  margin-bottom: 28px;
 }
 
-.ticket-type-selector {
-  margin-bottom: 30px;
+.identificador {
+  font-size: 0.9rem;
+  color: #4F789E;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.numero {
+  font-size: 5.5rem;
+  font-weight: 800;
+  color: #3B5975;
+  line-height: 1;
+  padding: 32px;
+  background: linear-gradient(135deg, #e8f2fb 0%, #d6e7f7 100%);
+  border-radius: 20px;
+  border: 3px solid #6397C7;
+  margin-bottom: 16px;
+}
+
+.tipo-badge {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tipo-badge.normal {
+  background: #eaf8e5;
+  color: #4a9e2e;
+}
+
+.tipo-badge.prioritario {
+  background: #fef7e0;
+  color: #b8860b;
+}
+
+/* Status chamando */
+.status-chamando {
+  background: linear-gradient(135deg, #fef7e0 0%, #fcecb8 100%);
+  padding: 16px 24px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  animation: pulse-status 1.5s infinite;
+}
+
+@keyframes pulse-status {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(235, 190, 117, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(235, 190, 117, 0); }
+}
+
+.icone-status {
+  font-size: 2rem;
+}
+
+.texto-status {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #8a6b1e;
+}
+
+/* Resumo da previsão - card único com todas as informações */
+.previsao-resumo {
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 28px;
   text-align: left;
 }
 
-.ticket-type-selector h3 {
-  margin-bottom: 15px;
-  color: #333;
+.previsao-resumo.normal {
+  background: linear-gradient(135deg, #d6e7f7 0%, #b5d5f0 100%);
+  border: 2px solid #6397C7;
 }
 
-.radio-option {
+.previsao-resumo.prioritario {
+  background: linear-gradient(135deg, #fef7e0 0%, #fcecb8 100%);
+  border: 2px solid #EBBE75;
+}
+
+.previsao-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.previsao-linha + .previsao-linha {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.previsao-linha.destaque {
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 2px solid rgba(0, 0, 0, 0.12);
+}
+
+.previsao-icone {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.previsao-texto {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.previsao-resumo.normal .previsao-texto {
+  color: #3B5975;
+}
+
+.previsao-resumo.prioritario .previsao-texto {
+  color: #8a6b1e;
+}
+
+/* Botões de ação */
+.btn {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 1rem;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+/* Seção de Histórico */
+.history-section {
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.history-section h2 {
+  margin: 0 0 20px 0;
+  color: #3B5975;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.loading, .empty-history {
+  text-align: center;
+  color: #4F789E;
+  padding: 20px;
+}
+
+.history-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.history-item {
   display: flex;
   align-items: center;
   padding: 15px;
   margin-bottom: 10px;
-  border: 2px solid #e0e0e0;
   border-radius: 8px;
-  cursor: pointer;
+  border: 1px solid #e0e0e0;
   transition: all 0.3s;
 }
 
-.radio-option:hover {
-  border-color: #667eea;
-  background: #f5f7ff;
+.history-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.radio-option input {
+.history-item.esperando {
+  background: #f5f5f5;
+  border-color: #9e9e9e;
+}
+
+.history-item.chamando {
+  background: #fff0f0;
+  border-color: #f5576c;
+  animation: pulse 1.5s infinite;
+}
+
+.history-item.atendido {
+  background: #f0fdf4;
+  border-color: #10b981;
+}
+
+.history-item.cancelado {
+  background: #fef3c7;
+  border-color: #d97706;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.history-number {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #3B5975;
   margin-right: 15px;
-  cursor: pointer;
+  min-width: 60px;
+  text-align: center;
 }
 
-.radio-option span {
+.history-details {
   flex: 1;
 }
 
-.radio-option strong {
-  display: block;
-  color: #333;
-}
-
-.radio-option small {
-  display: block;
-  color: #999;
-  font-size: 0.85rem;
-  margin-top: 3px;
-}
-
-.ticket-display {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.ticket-number {
-  font-size: 4rem;
-  font-weight: bold;
-  color: #667eea;
-  padding: 40px;
-  background: #f5f7ff;
-  border-radius: 15px;
-  border: 3px solid #667eea;
-}
-
-.ticket-info {
-  text-align: center;
-}
-
-.ticket-details {
-  background: #f9f9f9;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  text-align: left;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.detail-row:last-child {
-  border-bottom: none;
-}
-
-.detail-row.highlight {
-  background: #fff3cd;
-  margin: 0 -20px;
-  padding: 15px 20px;
-  border-radius: 8px;
-  border: 1px solid #ffc107;
-}
-
-.label {
-  font-weight: 500;
-  color: #666;
-}
-
-.value {
-  color: #333;
+.history-type {
   font-weight: 600;
+  color: #3B5975;
+  margin-bottom: 5px;
 }
 
-.value.normal {
-  color: #2196f3;
-}
-
-.value.prioritario {
-  color: #ff9800;
-}
-
-.value.time-estimated {
-  color: #e65100;
-  font-size: 1.1rem;
-}
-
-.value.chamando {
-  color: #ff9800;
-}
-
-.value.atendido {
-  color: #4caf50;
-}
-
-.value.cancelado {
-  color: #f44336;
-}
-
-/* Status bar da fila */
-.status-bar {
-  display: flex;
-  align-items: center;
-  padding: 15px 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  text-align: left;
-}
-
-.status-bar.normal {
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-  border: 2px solid #2196f3;
-}
-
-.status-bar.prioritario {
-  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-  border: 2px solid #ff9800;
-}
-
-.status-icon {
-  font-size: 2rem;
-  margin-right: 15px;
-}
-
-.status-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.status-text strong {
-  font-size: 1rem;
-  color: #333;
-}
-
-.status-text span {
+.history-status {
+  color: #4F789E;
   font-size: 0.9rem;
-  color: #666;
-  margin-top: 3px;
+  margin-bottom: 3px;
 }
 
-.status-bar.normal .status-text strong {
-  color: #1565c0;
-}
-
-.status-bar.prioritario .status-text strong {
-  color: #e65100;
-}
-
-.btn-lg {
-  width: 100%;
-  padding: 15px;
-  font-size: 1.1rem;
-  margin-bottom: 15px;
+.history-date {
+  color: #6b7280;
+  font-size: 0.8rem;
 }
 
 .back-link {
   display: block;
   text-align: center;
-  color: #667eea;
+  color: #4F789E;
   text-decoration: none;
   font-size: 0.9rem;
   margin-top: 20px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  transition: all 0.3s;
 }
 
 .back-link:hover {
   text-decoration: underline;
+  background: white;
+}
+
+/* Responsivo */
+@media (max-width: 640px) {
+  .client-container {
+    padding: 20px;
+  }
+
+  .header {
+    padding: 20px;
+  }
+
+  .card-principal {
+    padding: 28px;
+  }
+
+  .header h1 {
+    font-size: 1.5rem;
+  }
+
+  .numero {
+    font-size: 3.5rem;
+    padding: 24px;
+  }
+
+  .status-chamando {
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .history-list {
+    max-height: 250px;
+  }
 }
 </style>

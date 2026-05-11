@@ -424,3 +424,25 @@ exports.cancelarMinhaSenha = (deviceId) => {
     });
   });
 };
+
+/* ===================================================
+   BUSCAR HISTÓRICO DE SENHAS POR DEVICE ID
+   =================================================== */
+exports.buscarHistoricoSenhas = (deviceId) => {
+  return new Promise((resolve, reject) => {
+
+    const sql = `
+        SELECT *
+        FROM senha
+        WHERE dispositivo_id = $1
+        ORDER BY id DESC
+    `;
+
+    db.query(sql, [deviceId], (err, result) => {
+
+      if (err) return reject(err);
+
+      resolve(result.rows);
+    });
+  });
+};
