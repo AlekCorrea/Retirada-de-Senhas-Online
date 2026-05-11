@@ -1,7 +1,15 @@
 <template>
   <div class="client-container">
     <div class="client-card">
-      <h1>📝 Gerenciar Minha Senha</h1>
+      <div class="header-section">
+        <h1>📝 Gerenciar Minha Senha</h1>
+        <div class="logout-section">
+          <button @click="logout" class="btn-logout">
+            <span class="icone-logout">🚪</span>
+            Sair
+          </button>
+        </div>
+      </div>
 
       <div v-if="!queueStore.minhaSenha" class="no-ticket">
         <p>Você não possui uma senha ativa</p>
@@ -20,8 +28,8 @@
           <label class="radio-option">
             <input v-model="tipoSelecionado" type="radio" value="prioritario" />
             <span>
-              <strong>Atendimento Prioritário</strong>
-              <small>Idosos, gestantes, PCD</small>
+                <strong>Atendimento Prioritário</strong>
+                <small>Idosos, gestantes, PCD</small>
             </span>
           </label>
         </div>
@@ -129,6 +137,10 @@ const cancelarSenha = async () => {
   }
 }
 
+const logout = () => {
+  authStore.logout()
+}
+
 const getStatusLabel = (status) => {
   const labels = {
     'esperando': '⏳ Esperando',
@@ -170,10 +182,47 @@ const calcularHorarioEstimado = () => {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-h1 {
-  text-align: center;
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 30px;
+}
+
+h1 {
+  margin: 0;
   color: #333;
+  font-size: 1.8rem;
+}
+
+.logout-section {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-logout {
+  padding: 10px 16px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-logout:hover {
+  background: #d32f2f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+.icone-logout {
+  font-size: 1rem;
 }
 
 .no-ticket {

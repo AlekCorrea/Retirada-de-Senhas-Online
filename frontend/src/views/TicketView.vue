@@ -7,6 +7,15 @@
           <h1>Retirada de Senhas</h1>
         </div>
         <p class="subtitulo">Sistema de Atendimento Online</p>
+        <div class="login-section">
+          <button @click="loginComGoogle" :disabled="carregandoLogin" class="btn-google">
+            <span v-if="carregandoLogin" class="spinner"></span>
+            <span v-else>
+              <span class="icone-google">🔍</span>
+              Login com Google
+            </span>
+          </button>
+        </div>
       </div>
 
       <!-- Sem senha retirada -->
@@ -121,9 +130,14 @@
 <script setup>
 import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
+const router = useRouter()
+const authStore = useAuthStore()
 const tipo = ref('normal')
 const carregando = ref(false)
+const carregandoLogin = ref(false)
 const erro = ref('')
 const senhaRetirada = ref(null)
 const tempoEstimado = ref(15)
@@ -251,6 +265,21 @@ const retirarSenha = async () => {
     carregando.value = false
   }
 }
+
+const loginComGoogle = async () => {
+  carregandoLogin.value = true
+  erro.value = ''
+
+  try {
+    // Redirecionar para o login do Google
+    window.location.href = '/auth/google'
+  } catch (error) {
+    console.error('Erro ao fazer login com Google:', error)
+    erro.value = 'Erro ao fazer login com Google. Tente novamente.'
+  } finally {
+    carregandoLogin.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -300,6 +329,43 @@ const retirarSenha = async () => {
   margin: 8px 0 0;
   color: #4F789E;
   font-size: 1rem;
+}
+
+.login-section {
+  margin-top: 20px;
+}
+
+.btn-google {
+  width: 100%;
+  padding: 16px;
+  background: white;
+  color: #4285F4;
+  border: 2px solid #4285F4;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-google:hover:not(:disabled) {
+  background: #4285F4;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(66, 133, 244, 0.4);
+}
+
+.btn-google:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.icone-google {
+  font-size: 1.2rem;
 }
 
 .secao-formulario h2 {

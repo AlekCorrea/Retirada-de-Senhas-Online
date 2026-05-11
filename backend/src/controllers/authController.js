@@ -9,8 +9,8 @@ exports.callback = (req, res) => {
         { expiresIn: "1d" }
     );
 
-    // Redirecionar para o frontend com o token
-    res.redirect(`/?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`);
+    // Redirecionar para o ClientView com o token
+    res.redirect(`/client?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`);
 };
 
 exports.loginAtendente = (req, res) => {
