@@ -122,50 +122,59 @@ const getStatusLabel = (status) => {
   }
   return labels[status] || status
 }
+
 </script>
 
 <style scoped>
 .admin-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .admin-header {
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 640px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .admin-header h1 {
   margin: 0;
-  color: #333;
+  color: #263A4D;
+  font-weight: 700;
+  font-size: 1.8rem;
 }
 
 .admin-content {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 640px;
 }
 
 .control-panel,
 .queue-list {
   background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  margin-bottom: 24px;
 }
 
 h2 {
   margin-top: 0;
-  color: #333;
+  color: #263A4D;
+  font-weight: 600;
+  font-size: 1.2rem;
 }
 
 .btn-lg {
@@ -217,7 +226,7 @@ h2 {
 .senha-numero {
   font-size: 2rem;
   font-weight: bold;
-  color: #667eea;
+  color: #75B1EB;
   text-align: center;
   margin-bottom: 10px;
 }
@@ -245,20 +254,11 @@ h2 {
 
 @media (max-width: 768px) {
   .admin-content {
-    grid-template-columns: 1fr;
+    width: 100%;
   }
-
   .admin-header {
     flex-direction: column;
     gap: 10px;
-  }
-
-  .admin-header h1 {
-    width: 100%;
-  }
-
-  .admin-header .btn {
-    width: 100%;
   }
 }
 </style>
