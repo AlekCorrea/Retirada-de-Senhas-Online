@@ -5,7 +5,6 @@
     <h1>🎫 Senhas Online</h1>
   </div>
   <div class="navbar-menu">
-    <router-link to="/admin" class="nav-link" v-if="isAdmin">Admin</router-link>
   </div>
     </nav>
 

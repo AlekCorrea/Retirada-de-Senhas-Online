@@ -32,28 +32,9 @@
     <main class="admin-content">
       <!-- Fila Tab -->
       <section v-if="activeTab === 'fila'" class="tab-content">
-        <!-- Painel de Controles -->
-        <section class="control-panel">
-          <h2>Controles da Fila</h2>
-          <div class="control-buttons">
-            <button 
-              @click="chamarProxima" 
-              :disabled="queueStore.loading" 
-              class="btn btn-primary btn-lg"
-            >
-              <span class="btn-icon">📢</span>
-              <span class="btn-text">{{ queueStore.loading ? 'Chamando...' : 'Chamar Próxima' }}</span>
-            </button>
-            <button @click="recarregar" class="btn btn-secondary">
-              <span class="btn-icon">🔄</span>
-              <span class="btn-text">Recarregar</span>
-            </button>
-          </div>
-        </section>
-
-        <!-- Estatísticas da Fila -->
+        <!-- Status da Fila -->
         <section class="queue-stats" v-if="queueStats">
-          <h2>Estatísticas da Fila</h2>
+          <h2>Status da Fila</h2>
           <div class="stats-grid">
             <div class="stat-card total">
               <div class="stat-icon">📊</div>
@@ -63,22 +44,17 @@
             <div class="stat-card waiting">
               <div class="stat-icon">⏳</div>
               <div class="stat-value">{{ queueStats.esperando }}</div>
-              <div class="stat-label">Esperando</div>
+              <div class="stat-label">Pendentes</div>
             </div>
             <div class="stat-card calling">
               <div class="stat-icon">📢</div>
               <div class="stat-value">{{ queueStats.chamando }}</div>
-              <div class="stat-label">Chamando</div>
+              <div class="stat-label">Em Atendimento</div>
             </div>
             <div class="stat-card attended">
               <div class="stat-icon">✓</div>
               <div class="stat-value">{{ queueStats.atendido }}</div>
-              <div class="stat-label">Atendido</div>
-            </div>
-            <div class="stat-card cancelled">
-              <div class="stat-icon">✗</div>
-              <div class="stat-value">{{ queueStats.cancelado }}</div>
-              <div class="stat-label">Cancelado</div>
+              <div class="stat-label">Atendidos</div>
             </div>
             <div class="stat-card normal">
               <div class="stat-icon">🔵</div>
@@ -120,24 +96,6 @@
                   <span class="info-label">Código:</span>
                   <span class="info-value">{{ senha.codigo_verificacao }}</span>
                 </div>
-              </div>
-              <div class="senha-actions">
-                <button 
-                  v-if="senha.status === 'chamando'" 
-                  @click="finalizarSenha(senha.id)" 
-                  class="btn btn-sm btn-success"
-                >
-                  <span>✓</span>
-                  <span>Finalizar</span>
-                </button>
-                <button 
-                  v-if="senha.status !== 'atendido' && senha.status !== 'cancelado'" 
-                  @click="cancelarSenha(senha.id)" 
-                  class="btn btn-sm btn-danger"
-                >
-                  <span>✗</span>
-                  <span>Cancelar</span>
-                </button>
               </div>
             </div>
           </div>
@@ -344,40 +302,10 @@ onMounted(() => {
     router.push('/login')
     return
   }
-  recarregar()
   fetchQueueStats()
   fetchUsers()
-})
-
-const recarregar = () => {
   queueStore.fetchSenhas(authStore.token)
-}
-
-const chamarProxima = async () => {
-  try {
-    await queueStore.chamarProxima(authStore.token)
-  } catch (error) {
-    alert('Erro ao chamar próxima: ' + error.message)
-  }
-}
-
-const finalizarSenha = async (id) => {
-  try {
-    await queueStore.finalizarSenha(id, authStore.token)
-  } catch (error) {
-    alert('Erro ao finalizar: ' + error.message)
-  }
-}
-
-const cancelarSenha = async (id) => {
-  if (confirm('Tem certeza que deseja cancelar esta senha?')) {
-    try {
-      await queueStore.cancelarSenha(id, authStore.token)
-    } catch (error) {
-      alert('Erro ao cancelar: ' + error.message)
-    }
-  }
-}
+})
 
 const logout = () => {
   authStore.logout()
@@ -624,20 +552,7 @@ h2 {
   font-size: 1.4rem;
 }
 
-/* Painel de Controles */
-.control-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.control-buttons {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-/* Estatísticas da Fila */
+/* Status da Fila */
 .queue-stats h2 {
   margin-bottom: 20px;
 }
@@ -861,11 +776,6 @@ h2 {
   color: var(--text-primary);
 }
 
-.senha-actions {
-  display: flex;
-  gap: 8px;
-}
-
 /* Gerenciamento de Usuários */
 .section-header {
   display: flex;
@@ -1042,10 +952,6 @@ h2 {
     margin-bottom: 16px;
   }
 
-  .control-buttons {
-    grid-template-columns: 1fr;
-  }
-
   .stats-grid {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px;
@@ -1133,10 +1039,6 @@ h2 {
     flex-direction: column;
     gap: 12px;
     text-align: center;
-  }
-
-  .senha-actions {
-    flex-direction: column;
   }
 }
 </style>
