@@ -20,6 +20,7 @@ require("./config/passport");
 // Importar rotas
 const authRoutes = require("./routes/authRoutes");
 const senhaRoutes = require("./routes/senhaRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 // ============================================
 // MIDDLEWARES DE SEGURANÇA
@@ -92,6 +93,8 @@ app.use("/auth", authRoutes);
 
 // Rotas de senhas
 app.use("/api", senhaRoutes);
+// Rotas de gerenciamento de usuários (apenas admins)
+app.use("/users", userRoutes);
 
 // ============================================
 // TRATAMENTO DE ERROS
