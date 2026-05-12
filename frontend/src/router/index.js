@@ -27,11 +27,12 @@ const routes = [
     name: 'Client',
     component: ClientView
   },
-  {
-    path: '/atendente',
-    name: 'Atendente',
-    component: AtendenteView
-  }
+    {
+      path: '/atendente',
+      name: 'Atendente',
+      component: AtendenteView,
+      meta: { requiresAuth: true }
+    }
 ]
 
 const router = createRouter({
