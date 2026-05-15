@@ -94,7 +94,7 @@ app.use("/auth", authRoutes);
 // Rotas de senhas
 app.use("/api", senhaRoutes);
 // Rotas de gerenciamento de usuários (apenas admins)
-app.use("/users", userRoutes);
+app.use("/api/users", userRoutes);
 
 // ============================================
 // TRATAMENTO DE ERROS
