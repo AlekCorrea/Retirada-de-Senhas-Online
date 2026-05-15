@@ -88,29 +88,48 @@ const fazerLogin = async () => {
   erro.value = ''
 
   try {
-    const response = await axios.post('/auth/login-atendente', {
+    // Tentar login como admin primeiro
+    const response = await axios.post('/auth/login-admin', {
       email: email.value,
       senha: senha.value
     })
 
-    const { token, usuario } = response.data
+    const { token } = response.data
 
     // Armazenar token e usuário
     authStore.setToken(token)
-    authStore.setUser(usuario)
-    authStore.setAdmin(usuario.perfil === 'administrador')
+    authStore.setUser({ email: email.value, perfil: 'admin' })
+    authStore.setAdmin(true)
 
-    // Redirecionar baseado no perfil
-    if (usuario.perfil === 'administrador') {
-      router.push('/admin')
-    } else if (usuario.perfil === 'atendente') {
-      router.push('/atendente')
-    } else {
-      router.push('/')
+    // Redirecionar para admin
+    router.push('/admin')
+  } catch (adminError) {
+    // Se falhar, tentar login como atendente
+    try {
+      const response = await axios.post('/auth/login-atendente', {
+        email: email.value,
+        senha: senha.value
+      })
+
+      const { token, usuario } = response.data
+
+      // Armazenar token e usuário
+      authStore.setToken(token)
+      authStore.setUser(usuario)
+      authStore.setAdmin(usuario.perfil === 'administrador')
+
+      // Redirecionar baseado no perfil
+      if (usuario.perfil === 'administrador') {
+        router.push('/admin')
+      } else if (usuario.perfil === 'atendente') {
+        router.push('/atendente')
+      } else {
+        router.push('/')
+      }
+    } catch (atendenteError) {
+      console.error('Erro ao fazer login:', atendenteError)
+      erro.value = atendenteError.response?.data?.mensagem || 'Erro ao fazer login. Verifique suas credenciais.'
     }
-  } catch (error) {
-    console.error('Erro ao fazer login:', error)
-    erro.value = error.response?.data?.mensagem || 'Erro ao fazer login. Verifique suas credenciais.'
   } finally {
     loading.value = false
   }

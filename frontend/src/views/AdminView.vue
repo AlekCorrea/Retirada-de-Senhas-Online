@@ -72,15 +72,15 @@
         <!-- Lista de Senhas -->
         <section class="queue-list">
           <h2>Fila de Senhas</h2>
-          <div v-if="queueStore.loading" class="loading">
+          <div v-if="loading" class="loading">
             <div class="spinner"></div>
             <p>Carregando...</p>
           </div>
-          <div v-else-if="queueStore.senhas.length === 0" class="empty">
+          <div v-else-if="senhas.length === 0" class="empty">
             <p>📭 Nenhuma senha na fila</p>
           </div>
           <div v-else class="senhas-grid">
-            <div v-for="senha in queueStore.senhas" :key="senha.id" :class="['senha-card', senha.status]">
+            <div v-for="senha in senhas" :key="senha.id" :class="['senha-card', senha.status]">
               <div class="senha-header">
                 <div class="senha-numero">{{ senha.numero }}</div>
                 <div class="senha-badge" :class="senha.tipo">
@@ -211,18 +211,18 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { useQueueStore } from '../stores/queue'
 import axios from 'axios'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const queueStore = useQueueStore()
 
 // Estado local para estatísticas da fila e aba ativa
 const queueStats = ref(null)
+const senhas = ref([])
+const loading = ref(false)
 const activeTab = ref('fila')
 
 // Estado e funções para gerenciamento de usuários
@@ -238,14 +238,45 @@ const tabs = [
 
 const API_URL = '/api'
 
-const fetchQueueStats = async () => {
+// Variável para armazenar o intervalo de atualização
+let updateInterval = null
+
+const fetchQueueData = async () => {
+  loading.value = true
   try {
-    const response = await axios.get(`${API_URL}/fila`, {
+    // Buscar lista de senhas usando o endpoint de admin
+    console.log('Iniciando busca de dados da fila...')
+    const response = await axios.get(`${API_URL}/senhas`, {
       headers: { Authorization: `Bearer ${authStore.token}` }
     })
-    queueStats.value = response.data.stats || response.data
+    
+    console.log('Resposta recebida:', response.data)
+    
+    // Processar os dados para calcular estatísticas
+    const senhasData = response.data
+    senhas.value = senhasData
+    
+    console.log('Senhas processadas:', senhasData)
+    
+    // Calcular estatísticas
+    queueStats.value = {
+      total: senhasData.length,
+      esperando: senhasData.filter(s => s.status === 'esperando').length,
+      chamando: senhasData.filter(s => s.status === 'chamando').length,
+      atendido: senhasData.filter(s => s.status === 'atendido').length,
+      normais: senhasData.filter(s => s.tipo === 'normal').length,
+      prioritarias: senhasData.filter(s => s.tipo === 'prioritario').length
+    }
+    
+    console.log('Estatísticas calculadas:', queueStats.value)
   } catch (e) {
-    console.error('Erro ao buscar estatísticas da fila', e)
+    console.error('Erro ao buscar dados da fila:', e)
+    if (e.response) {
+      console.error('Status:', e.response.status)
+      console.error('Dados:', e.response.data)
+    }
+  } finally {
+    loading.value = false
   }
 }
 
@@ -297,14 +328,38 @@ const deactivateUser = async (id) => {
   }
 }
 
+// Função para atualizar automaticamente a fila
+const startAutoUpdate = () => {
+  // Atualizar imediatamente
+  fetchQueueData()
+  
+  // Configurar intervalo para atualização a cada 5 segundos
+  updateInterval = setInterval(() => {
+    fetchQueueData()
+  }, 5000)
+}
+
+// Função para parar atualização automática
+const stopAutoUpdate = () => {
+  if (updateInterval) {
+    clearInterval(updateInterval)
+    updateInterval = null
+  }
+}
+
 onMounted(() => {
   if (!authStore.isLoggedIn || !authStore.isAdmin) {
     router.push('/login')
     return
   }
-  fetchQueueStats()
+  
   fetchUsers()
-  queueStore.fetchSenhas(authStore.token)
+  startAutoUpdate()
+})
+
+onUnmounted(() => {
+  // Limpar o intervalo quando o componente for desmontado
+  stopAutoUpdate()
 })
 
 const logout = () => {
