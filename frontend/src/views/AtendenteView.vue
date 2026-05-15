@@ -1,156 +1,168 @@
 <template>
   <div class="atendente-container">
-    <header class="header">
+    <!-- Header Moderno -->
+    <header class="atendente-header">
       <div class="header-content">
-        <div class="logo">
-          <span class="icone-senha">👤</span>
-          <h1>Painel do Atendente</h1>
+        <div class="header-title">
+          <h1>👤 Painel do Atendente</h1>
+          <p>Bem-vindo, {{ authStore.user?.nome || 'Atendente' }}</p>
         </div>
-        <div class="user-info">
-          <span>{{ authStore.user?.nome }}</span>
-          <button @click="logout" class="btn-logout">Sair</button>
-        </div>
+        <button @click="logout" class="btn btn-logout">
+          <span>🚪</span>
+          <span>Sair</span>
+        </button>
       </div>
     </header>
 
-    <main class="main-content">
-      <div class="card-principal">
-        <!-- Botão Chamar Próxima - Destaque -->
-        <section class="action-section">
-          <button
-            @click="chamarProxima"
-            :disabled="loading"
-            class="btn-chamar-proxima"
-          >
-            <span v-if="loading" class="spinner"></span>
-            <span v-else>
-              <span class="icon">📢</span>
-              <span class="text">Chamar Próxima Senha</span>
-            </span>
-          </button>
-        </section>
+    <!-- Conteúdo Principal -->
+    <main class="atendente-content">
+      <!-- Botão Chamar Próxima - Destaque -->
+      <section class="action-section">
+        <button
+          @click="chamarProxima"
+          :disabled="loading"
+          class="btn-chamar-proxima"
+        >
+          <span v-if="loading" class="spinner"></span>
+          <span v-else>
+            <span class="icon">📢</span>
+            <span class="text">Chamar Próxima Senha</span>
+          </span>
+        </button>
+      </section>
 
-        <!-- Senha Sendo Atendida -->
-        <section class="current-ticket-section">
-          <h2>🎫 Senha em Atendimento</h2>
-          <div v-if="senhaAtual" class="ticket-card">
-            <div class="numero-senha">
-              <div class="identificador">Senha atual</div>
-              <div class="numero">{{ senhaAtual.numero }}</div>
-              <div class="tipo-badge" :class="senhaAtual.tipo">
-                {{ senhaAtual.tipo === 'prioritario' ? '⭐ Prioritária' : '📋 Normal' }}
-              </div>
-            </div>
-            <div class="ticket-details">
-              <p><strong>Código de verificação:</strong> {{ senhaAtual.codigo_verificacao }}</p>
-            </div>
-            <div class="ticket-actions">
-              <button @click="finalizarAtendimento" class="btn btn-success">
-                ✓ Finalizar Atendimento
-              </button>
-              <button @click="cancelarSenha" class="btn btn-danger">
-                ✗ Cancelar Senha
-              </button>
+      <!-- Senha Sendo Atendida -->
+      <section class="current-ticket-section">
+        <h2>🎫 Senha em Atendimento</h2>
+        <div v-if="senhaAtual" class="ticket-card">
+          <div class="numero-senha">
+            <div class="identificador">Senha atual</div>
+            <div class="numero">{{ senhaAtual.numero }}</div>
+            <div class="tipo-badge" :class="senhaAtual.tipo">
+              {{ senhaAtual.tipo === 'prioritario' ? '⭐ Prioritária' : '📋 Normal' }}
             </div>
           </div>
-          <div v-else class="no-ticket">
-            <p>📭 Nenhuma senha em atendimento</p>
-            <p v-if="fila.length > 0">Clique em "Chamar Próxima" para começar</p>
-          </div>
-        </section>
-
-        <!-- Estatísticas -->
-        <section class="stats-section">
-          <h2>📊 Estatísticas da Fila</h2>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-number">{{ filaStats.esperando }}</div>
-              <div class="stat-label">Esperando</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">{{ filaStats.chamando }}</div>
-              <div class="stat-label">Chamando</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">{{ filaStats.normais }}</div>
-              <div class="stat-label">Normais</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">{{ filaStats.prioritarias }}</div>
-              <div class="stat-label">Prioritárias</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">{{ filaStats.atendido }}</div>
-              <div class="stat-label">Atendidas</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">{{ filaStats.total }}</div>
-              <div class="stat-label">Total</div>
+          <div class="ticket-details">
+            <div class="info-row">
+              <span class="info-label">Código de verificação:</span>
+              <span class="info-value">{{ senhaAtual.codigo_verificacao }}</span>
             </div>
           </div>
-        </section>
-
-        <!-- Duas Filas Laterais -->
-        <div class="queues-container">
-          <!-- Fila de Chamadas - Lado Esquerdo -->
-          <section class="queue-section left">
-            <h2>📋 Fila de Chamadas</h2>
-            <div v-if="filaChamada.length > 0" class="queue-list">
-              <div
-                v-for="(senha, index) in filaChamadaInvertida"
-                :key="senha.id"
-                class="queue-item"
-                :class="{ 'status-chamando': senha.status === 'chamando' }"
-              >
-                <div class="position">{{ index + 1 }}º</div>
-                <div class="info">
-                  <div class="number">{{ senha.numero }}</div>
-                  <div class="type" :class="senha.tipo">
-                    {{ senha.tipo === 'prioritario' ? '⭐' : '📋' }}
-                  </div>
-                </div>
-                <div class="code">{{ senha.codigo_verificacao }}</div>
-                <div class="status-badge" :class="senha.status">
-                  {{ getStatusLabel(senha.status) }}
-                </div>
-              </div>
-            </div>
-            <div v-else class="queue-empty">
-              <p>🎉 Nenhuma senha na fila de chamadas</p>
-            </div>
-          </section>
-
-          <!-- Fila Atendida - Lado Direito -->
-          <section class="queue-section right">
-            <h2>✅ Fila Atendida</h2>
-            <div v-if="filaAtendida.length > 0" class="queue-list">
-              <div
-                v-for="(senha, index) in filaAtendidaInvertida"
-                :key="senha.id"
-                class="queue-item atendido"
-              >
-                <div class="position">{{ index + 1 }}º</div>
-                <div class="info">
-                  <div class="number">{{ senha.numero }}</div>
-                  <div class="type" :class="senha.tipo">
-                    {{ senha.tipo === 'prioritario' ? '⭐' : '📋' }}
-                  </div>
-                </div>
-                <div class="code">{{ senha.codigo_verificacao }}</div>
-                <div class="atendente-info">
-                  <span class="atendente-name">{{ senha.atendente?.nome || 'N/A' }}</span>
-                  <span class="atendente-time">{{ formatarData(senha.atualizado_em) }}</span>
-                </div>
-              </div>
-            </div>
-            <div v-else class="queue-empty">
-              <p>🎉 Nenhum ticket atendido</p>
-            </div>
-          </section>
+          <div class="ticket-actions">
+            <button @click="finalizarAtendimento" class="btn btn-success">
+              <span>✓</span>
+              <span>Finalizar Atendimento</span>
+            </button>
+            <button @click="cancelarSenha" class="btn btn-danger">
+              <span>✗</span>
+              <span>Cancelar Senha</span>
+            </button>
+          </div>
         </div>
+        <div v-else class="no-ticket">
+          <p>📭 Nenhuma senha em atendimento</p>
+          <p v-if="fila.length > 0">Clique em "Chamar Próxima" para começar</p>
+        </div>
+      </section>
+
+      <!-- Estatísticas -->
+      <section class="stats-section">
+        <h2>📊 Estatísticas da Fila</h2>
+        <div class="stats-grid">
+          <div class="stat-card total">
+            <div class="stat-icon">📊</div>
+            <div class="stat-value">{{ filaStats.total }}</div>
+            <div class="stat-label">Total</div>
+          </div>
+          <div class="stat-card waiting">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-value">{{ filaStats.esperando }}</div>
+            <div class="stat-label">Pendentes</div>
+          </div>
+          <div class="stat-card calling">
+            <div class="stat-icon">📢</div>
+            <div class="stat-value">{{ filaStats.chamando }}</div>
+            <div class="stat-label">Em Atendimento</div>
+          </div>
+          <div class="stat-card attended">
+            <div class="stat-icon">✓</div>
+            <div class="stat-value">{{ filaStats.atendido }}</div>
+            <div class="stat-label">Atendidas</div>
+          </div>
+          <div class="stat-card normal">
+            <div class="stat-icon">🔵</div>
+            <div class="stat-value">{{ filaStats.normais }}</div>
+            <div class="stat-label">Normais</div>
+          </div>
+          <div class="stat-card priority">
+            <div class="stat-icon">🔴</div>
+            <div class="stat-value">{{ filaStats.prioritarias }}</div>
+            <div class="stat-label">Prioritárias</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Duas Filas Laterais -->
+      <div class="queues-container">
+        <!-- Fila de Chamadas - Lado Esquerdo -->
+        <section class="queue-section left">
+          <h2>📋 Fila de Chamadas</h2>
+          <div v-if="filaChamada.length > 0" class="queue-list">
+            <div
+              v-for="(senha, index) in filaChamadaInvertida"
+              :key="senha.id"
+              class="queue-item"
+              :class="{ 'status-chamando': senha.status === 'chamando' }"
+            >
+              <div class="position">{{ index + 1 }}º</div>
+              <div class="info">
+                <div class="number">{{ senha.numero }}</div>
+                <div class="type" :class="senha.tipo">
+                  {{ senha.tipo === 'prioritario' ? '⭐' : '📋' }}
+                </div>
+              </div>
+              <div class="code">{{ senha.codigo_verificacao }}</div>
+              <div class="status-badge" :class="senha.status">
+                {{ getStatusLabel(senha.status) }}
+              </div>
+            </div>
+          </div>
+          <div v-else class="queue-empty">
+            <p>🎉 Nenhuma senha na fila de chamadas</p>
+          </div>
+        </section>
+
+        <!-- Fila Atendida - Lado Direito -->
+        <section class="queue-section right">
+          <h2>✅ Fila Atendida</h2>
+          <div v-if="filaAtendida.length > 0" class="queue-list">
+            <div
+              v-for="(senha, index) in filaAtendidaInvertida"
+              :key="senha.id"
+              class="queue-item atendido"
+            >
+              <div class="position">{{ index + 1 }}º</div>
+              <div class="info">
+                <div class="number">{{ senha.numero }}</div>
+                <div class="type" :class="senha.tipo">
+                  {{ senha.tipo === 'prioritario' ? '⭐' : '📋' }}
+                </div>
+              </div>
+              <div class="code">{{ senha.codigo_verificacao }}</div>
+              <div class="atendente-info">
+                <span class="atendente-name">{{ senha.atendente?.nome || 'N/A' }}</span>
+                <span class="atendente-time">{{ formatarData(senha.atualizado_em) }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="queue-empty">
+            <p>🎉 Nenhum ticket atendido</p>
+          </div>
+        </section>
       </div>
     </main>
 
+    <!-- Alertas -->
     <div v-if="mensagem" class="alert" :class="'alert-' + tipoMensagem">
       {{ mensagem }}
     </div>
@@ -338,10 +350,40 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style>
+/* Variáveis de Design - Padronizado com AdminView */
+:root {
+  --primary-color: #75B1EB;
+  --primary-hover: #6397C7;
+  --secondary-color: #3B5975;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  --info-color: #3B82F6;
+  
+  --background-gradient: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
+  --card-background: #ffffff;
+  --text-primary: #263A4D;
+  --text-secondary: #4F789E;
+  --border-color: #75B1EB;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  --border-radius: 12px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Reset e Base */
+* {
+  box-sizing: border-box;
+}
+
+/* Container Principal */
 .atendente-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
+  background: var(--background-gradient);
   padding: 48px;
   display: flex;
   flex-direction: column;
@@ -349,14 +391,16 @@ onUnmounted(() => {
   justify-content: flex-start;
 }
 
-.header {
-  background: white;
-  border-radius: 24px;
+/* Header Moderno */
+.atendente-header {
+  background: var(--card-background);
+  border-radius: var(--border-radius);
   padding: 24px;
   margin-bottom: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-xl);
   width: 100%;
-  max-width: 640px;
+  max-width: 1200px;
+  animation: slideDown 0.5s ease-out;
 }
 
 .header-content {
@@ -365,33 +409,66 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.icone-senha {
-  font-size: 2.5rem;
-}
-
-.header h1 {
-  font-size: 1.8rem;
-  margin: 0;
-  color: #263A4D;
+.header-title h1 {
+  margin: 0 0 4px 0;
+  color: var(--text-primary);
   font-weight: 700;
+  font-size: 1.8rem;
 }
 
-.user-info {
-  display: flex;
+.header-title p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+/* Botões */
+.btn {
+  display: inline-flex;
   align-items: center;
-  gap: 20px;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-success {
+  background: var(--success-color);
+  color: white;
+}
+
+.btn-success:hover {
+  background: #059669;
+}
+
+.btn-danger {
+  background: var(--danger-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
 }
 
 .btn-logout {
   background: #f5f9fe;
-  color: #3B5975;
-  border: 2px solid #75B1EB;
+  color: var(--secondary-color);
+  border: 2px solid var(--border-color);
   padding: 8px 16px;
   border-radius: 8px;
   cursor: pointer;
@@ -401,30 +478,36 @@ onUnmounted(() => {
 
 .btn-logout:hover {
   background: #e8f2fb;
-  border-color: #6397C7;
+  border-color: var(--primary-hover);
 }
 
-.main-content {
+/* Conteúdo Principal */
+.atendente-content {
   width: 100%;
+  max-width: 1200px;
+  animation: fadeIn 0.8s ease-out;
 }
 
-.card-principal {
-  background: white;
-  border-radius: 24px;
-  padding: 48px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-  width: 100%;
+/* Seções Gerais */
+section {
+  background: var(--card-background);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-lg);
 }
 
-.dashboard {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1.4rem;
 }
 
 /* Botão Chamar Próxima */
 .action-section {
-  grid-column: 1 / -1;
+  margin-bottom: 24px;
 }
 
 .btn-chamar-proxima {
@@ -464,32 +547,22 @@ onUnmounted(() => {
   border: 3px solid rgba(255, 255, 255, 0.3);
   border-top-color: white;
   border-radius: 50%;
-  animation: girar 0.8s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
-@keyframes girar {
+@keyframes spin {
   to { transform: rotate(360deg); }
 }
 
 /* Senha em Atendimento */
-.current-ticket-section {
-  background: #f0f6fc;
-  border-radius: 14px;
-  padding: 24px;
-}
-
 .current-ticket-section h2 {
-  margin-top: 0;
-  color: #3B5975;
-  font-size: 1.2rem;
-  font-weight: 600;
   text-align: center;
 }
 
 .ticket-card {
   background: linear-gradient(135deg, #d6e7f7 0%, #b5d5f0 100%);
-  border: 2px solid #6397C7;
-  color: #3B5975;
+  border: 2px solid var(--primary-hover);
+  color: var(--secondary-color);
   padding: 30px;
   border-radius: 14px;
   text-align: center;
@@ -501,7 +574,7 @@ onUnmounted(() => {
 
 .identificador {
   font-size: 0.9rem;
-  color: #4F789E;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 2px;
   margin-bottom: 8px;
@@ -510,7 +583,7 @@ onUnmounted(() => {
 .numero {
   font-size: 4rem;
   font-weight: 800;
-  color: #3B5975;
+  color: var(--secondary-color);
   line-height: 1;
   margin-bottom: 16px;
 }
@@ -541,8 +614,20 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
-.ticket-details p {
-  margin: 8px 0;
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.info-value {
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .ticket-actions {
@@ -551,39 +636,10 @@ onUnmounted(() => {
   margin-top: 20px;
 }
 
-.btn {
-  flex: 1;
-  padding: 14px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-size: 1rem;
-}
-
-.btn-success {
-  background: #10b981;
-  color: white;
-}
-
-.btn-success:hover {
-  background: #059669;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
 .no-ticket {
   text-align: center;
   padding: 40px 20px;
-  color: #4F789E;
+  color: var(--text-secondary);
 }
 
 .no-ticket p {
@@ -591,77 +647,98 @@ onUnmounted(() => {
 }
 
 /* Estatísticas */
-.stats-section {
-  background: #f0f6fc;
-  border-radius: 14px;
-  padding: 24px;
-}
-
 .stats-section h2 {
-  margin-top: 0;
-  color: #3B5975;
-  font-size: 1.2rem;
-  font-weight: 600;
   text-align: center;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 16px;
 }
 
 .stat-card {
-  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
-  color: white;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
   padding: 20px;
-  border-radius: 10px;
   text-align: center;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
 }
 
-.stat-number {
-  font-size: 2.5rem;
-  font-weight: bold;
-  margin-bottom: 5px;
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.stat-card.total {
+  background: linear-gradient(135deg, #75B1EB 0%, #6397C7 100%);
+  color: white;
+}
+
+.stat-card.waiting {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.stat-card.calling {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.stat-card.attended {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.stat-card.normal {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: var(--text-primary);
+}
+
+.stat-card.priority {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+.stat-icon {
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 
 .stat-label {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   opacity: 0.9;
 }
 
 /* Duas Filas Laterais */
 .queues-container {
   display: flex;
-  justify-content: space-between;
   gap: 24px;
-  margin-top: 24px;
   width: 100%;
-  box-sizing: border-box;
 }
 
 .queue-section {
   flex: 1;
-  background: #f0f6fc;
-  border-radius: 14px;
-  padding: 24px;
   min-height: 300px;
 }
 
+.queue-section.left {
+  background: var(--card-background);
+}
+
 .queue-section.right {
-  background: #f0fdf4;
+  background: var(--card-background);
 }
 
 .queue-section h2 {
-  margin-top: 0;
-  color: #3B5975;
-  font-size: 1.2rem;
-  font-weight: 600;
   text-align: center;
-}
-
-.queue-section.right h2 {
-  color: #059669;
 }
 
 .queue-list {
@@ -676,20 +753,25 @@ onUnmounted(() => {
   align-items: center;
   gap: 15px;
   padding: 16px;
-  background: white;
+  background: #f8fafc;
   border-radius: 8px;
-  border-left: 4px solid #75B1EB;
-  transition: all 0.3s;
+  border-left: 4px solid var(--primary-color);
+  transition: var(--transition);
+}
+
+.queue-item:hover {
+  background: #f1f5f9;
+  transform: translateX(4px);
 }
 
 .queue-item.status-chamando {
-  border-left-color: #f5576c;
+  border-left-color: var(--danger-color);
   background: #fff0f0;
   animation: pulse 1.5s infinite;
 }
 
 .queue-item.atendido {
-  border-left-color: #10b981;
+  border-left-color: var(--success-color);
   background: #f0fdf4;
 }
 
@@ -701,12 +783,12 @@ onUnmounted(() => {
 .position {
   font-size: 1.2rem;
   font-weight: bold;
-  color: #75B1EB;
+  color: var(--primary-color);
   min-width: 40px;
 }
 
 .queue-item.atendido .position {
-  color: #059669;
+  color: var(--success-color);
 }
 
 .info {
@@ -718,7 +800,7 @@ onUnmounted(() => {
 .number {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #3B5975;
+  color: var(--secondary-color);
 }
 
 .type {
@@ -729,7 +811,7 @@ onUnmounted(() => {
   flex: 1;
   font-family: monospace;
   font-weight: 500;
-  color: #3B5975;
+  color: var(--secondary-color);
 }
 
 .status-badge {
@@ -776,7 +858,7 @@ onUnmounted(() => {
 .atendente-name {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #059669;
+  color: var(--success-color);
 }
 
 .atendente-time {
@@ -787,11 +869,7 @@ onUnmounted(() => {
 .queue-empty {
   text-align: center;
   padding: 30px;
-  color: #4F789E;
-}
-
-.queue-section.right .queue-empty {
-  color: #059669;
+  color: var(--text-secondary);
 }
 
 /* Alertas */
@@ -801,8 +879,9 @@ onUnmounted(() => {
   right: 20px;
   padding: 15px 20px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
+  animation: slideUp 0.3s ease-out;
 }
 
 .alert-success {
@@ -817,26 +896,86 @@ onUnmounted(() => {
   border: 1px solid #fca5a5;
 }
 
-/* Responsivo */
-@media (max-width: 640px) {
-  .header {
+/* Animações */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .atendente-container {
     padding: 20px;
   }
 
-  .card-principal {
-    padding: 28px;
+  .atendente-header {
+    padding: 20px;
+    margin-bottom: 16px;
+    width: 100%;
+    max-width: 100%;
   }
 
-  .header h1 {
+  .header-content {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .atendente-content {
+    padding: 0;
+  }
+
+  section {
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-value {
     font-size: 1.5rem;
   }
 
   .numero {
     font-size: 3rem;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   .ticket-actions {
@@ -846,7 +985,6 @@ onUnmounted(() => {
   .queues-container {
     flex-direction: column;
     gap: 16px;
-    padding: 0 28px;
   }
 
   .queue-item {
@@ -856,6 +994,29 @@ onUnmounted(() => {
   .atendente-info {
     min-width: auto;
     width: 100%;
+  }
+
+  .btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .atendente-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stat-card {
+    padding: 12px;
+  }
+
+  .stat-value {
+    font-size: 1.2rem;
   }
 }
 </style>
