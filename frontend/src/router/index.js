@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue'
 import AdminView from '../views/AdminView.vue'
 import ClientView from '../views/ClientView.vue'
 import AtendenteView from '../views/AtendenteView.vue'
+import PainelView from '../views/PainelView.vue'
 import { setupGuards } from './guards'
 
 const routes = [
@@ -26,6 +27,11 @@ const routes = [
     path: '/client',
     name: 'Client',
     component: ClientView
+  },
+  {
+    path: '/painel',
+    name: 'Painel',
+    component: PainelView
   },
     {
       path: '/atendente',

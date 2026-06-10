@@ -7,6 +7,54 @@ let contadorPrioritarias = 0;
 // Tempo médio de atendimento em minutos (estimativa)
 const TEMPO_MEDIO_ATENDIMENTO = 5;
 
+function normalizarAtendenteId(atendenteId) {
+  return atendenteId || null;
+}
+
+function registrarAtendimento(senha, atendenteId, observacoes) {
+  return new Promise((resolve, reject) => {
+    if (!senha?.id) return resolve(null);
+
+    const fim = senha.atendido_em || senha.cancelado_em || senha.updated_at;
+    const inicioAtendimento =
+      senha.status_anterior === "chamando" ? senha.atendimento_inicio : null;
+
+    const sql = `
+        INSERT INTO atendimentos
+        (senha_id, atendente_id, tempo_espera_minutos, tempo_atendimento_minutos, observacoes)
+        SELECT
+          $1,
+          $2,
+          GREATEST(0, FLOOR(EXTRACT(EPOCH FROM ($3::timestamp - $4::timestamp)) / 60))::integer,
+          CASE
+            WHEN $5::timestamp IS NULL THEN NULL
+            ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM ($3::timestamp - $5::timestamp)) / 60))::integer
+          END,
+          $6
+        WHERE NOT EXISTS (
+          SELECT 1 FROM atendimentos WHERE senha_id = $1
+        )
+        RETURNING *
+    `;
+
+    db.query(
+      sql,
+      [
+        senha.id,
+        normalizarAtendenteId(atendenteId),
+        fim,
+        senha.created_at,
+        inicioAtendimento,
+        observacoes
+      ],
+      (err, result) => {
+        if (err) return reject(err);
+        resolve(result.rows[0] || null);
+      }
+    );
+  });
+}
+
 /**
  * Calcula o tempo estimado de atendimento para uma senha na posição da fila.
  * Considera a regra 3x1 (3 prioritárias, 1 normal).
@@ -207,16 +255,29 @@ exports.listarSenhas = () => {
    CHAMAR PRÓXIMA (REGRA 3x1)
    3 prioritárias e 1 normal
    =================================================== */
-exports.chamarProxima = () => {
+exports.chamarProxima = (atendenteId, guiche) => {
   return new Promise((resolve, reject) => {
 
     const finalizarAnterior = `
-        UPDATE senha
-        SET status = 'atendido'
-        WHERE status = 'chamando'
+        WITH anteriores AS (
+          SELECT *, updated_at AS atendimento_inicio
+          FROM senha
+          WHERE status = 'chamando'
+        ),
+        atualizadas AS (
+          UPDATE senha s
+          SET status = 'atendido',
+              atendente_id = COALESCE($1, s.atendente_id),
+              updated_at = CURRENT_TIMESTAMP,
+              atendido_em = CURRENT_TIMESTAMP
+          FROM anteriores a
+          WHERE s.id = a.id
+          RETURNING s.*, a.status AS status_anterior, a.atendimento_inicio
+        )
+        SELECT * FROM atualizadas
     `;
 
-    db.query(finalizarAnterior, (err) => {
+    db.query(finalizarAnterior, [normalizarAtendenteId(atendenteId)], (err, finalizadasResult) => {
       if (err) return reject(err);
 
       let sqlBusca = "";
@@ -249,25 +310,40 @@ exports.chamarProxima = () => {
         `;
       }
 
-      db.query(sqlBusca, (err, result) => {
+      db.query(sqlBusca, async (err, result) => {
         if (err) return reject(err);
 
         if (result.rows.length === 0) {
+          try {
+            await Promise.all(
+              finalizadasResult.rows.map((finalizada) =>
+                registrarAtendimento(finalizada, atendenteId, "Atendimento finalizado automaticamente ao chamar proxima senha")
+              )
+            );
+          } catch (err) {
+            return reject(err);
+          }
+
           return resolve({
-            mensagem: "Nenhuma senha na fila"
+            mensagem: "Nenhuma senha na fila",
+            finalizadas: finalizadasResult.rows
           });
         }
 
         const senha = result.rows[0];
+        const guicheNormalizado = guiche ? String(guiche).trim().slice(0, 50) : null;
 
         const sqlUpdate = `
             UPDATE senha
-            SET status = 'chamando'
+            SET status = 'chamando',
+                guiche = COALESCE($2, guiche),
+                atendente_id = COALESCE($3, atendente_id),
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = $1
             RETURNING *
         `;
 
-        db.query(sqlUpdate, [senha.id], (err, updateResult) => {
+        db.query(sqlUpdate, [senha.id, guicheNormalizado, normalizarAtendenteId(atendenteId)], async (err, updateResult) => {
           if (err) return reject(err);
 
           if (senha.tipo === "prioritario") {
@@ -276,7 +352,20 @@ exports.chamarProxima = () => {
             contadorPrioritarias = 0;
           }
 
-          resolve(updateResult.rows[0]);
+          try {
+            await Promise.all(
+              finalizadasResult.rows.map((finalizada) =>
+                registrarAtendimento(finalizada, atendenteId, "Atendimento finalizado automaticamente ao chamar proxima senha")
+              )
+            );
+          } catch (err) {
+            return reject(err);
+          }
+
+          resolve({
+            ...updateResult.rows[0],
+            finalizadas: finalizadasResult.rows
+          });
         });
       });
     });
@@ -286,22 +375,40 @@ exports.chamarProxima = () => {
 /* ===================================================
    FINALIZAR MANUALMENTE
    =================================================== */
-exports.finalizarSenha = (id) => {
+exports.finalizarSenha = (id, atendenteId) => {
   return new Promise((resolve, reject) => {
 
     const sql = `
-        UPDATE senha
-        SET status = 'atendido'
-        WHERE id = $1
-        RETURNING *
+        WITH anterior AS (
+          SELECT *, updated_at AS atendimento_inicio
+          FROM senha
+          WHERE id = $1
+        ),
+        atualizada AS (
+          UPDATE senha s
+          SET status = 'atendido',
+              atendente_id = COALESCE($2, s.atendente_id),
+              updated_at = CURRENT_TIMESTAMP,
+              atendido_em = CURRENT_TIMESTAMP
+          FROM anterior a
+          WHERE s.id = a.id
+          RETURNING s.*, a.status AS status_anterior, a.atendimento_inicio
+        )
+        SELECT * FROM atualizada
     `;
 
-    db.query(sql, [id], (err, result) => {
+    db.query(sql, [id, normalizarAtendenteId(atendenteId)], async (err, result) => {
       if (err) return reject(err);
 
-      resolve({
-        mensagem: "Senha finalizada"
-      });
+      const senha = result.rows[0] || null;
+      if (!senha) return resolve(null);
+
+      try {
+        await registrarAtendimento(senha, atendenteId, "Atendimento finalizado");
+        resolve(senha);
+      } catch (err) {
+        reject(err);
+      }
     });
   });
 };
@@ -309,22 +416,40 @@ exports.finalizarSenha = (id) => {
 /* ===================================================
    CANCELAR SENHA
    =================================================== */
-exports.cancelarSenha = (id) => {
+exports.cancelarSenha = (id, atendenteId) => {
   return new Promise((resolve, reject) => {
 
     const sql = `
-        UPDATE senha
-        SET status = 'cancelado'
-        WHERE id = $1
-        RETURNING *
+        WITH anterior AS (
+          SELECT *, updated_at AS atendimento_inicio
+          FROM senha
+          WHERE id = $1
+        ),
+        atualizada AS (
+          UPDATE senha s
+          SET status = 'cancelado',
+              atendente_id = COALESCE($2, s.atendente_id),
+              updated_at = CURRENT_TIMESTAMP,
+              cancelado_em = CURRENT_TIMESTAMP
+          FROM anterior a
+          WHERE s.id = a.id
+          RETURNING s.*, a.status AS status_anterior, a.atendimento_inicio
+        )
+        SELECT * FROM atualizada
     `;
 
-    db.query(sql, [id], (err, result) => {
+    db.query(sql, [id, normalizarAtendenteId(atendenteId)], async (err, result) => {
       if (err) return reject(err);
 
-      resolve({
-        mensagem: "Senha cancelada"
-      });
+      const senha = result.rows[0] || null;
+      if (!senha) return resolve(null);
+
+      try {
+        await registrarAtendimento(senha, atendenteId, "Senha cancelada pelo atendimento");
+        resolve(senha);
+      } catch (err) {
+        reject(err);
+      }
     });
   });
 };
@@ -363,6 +488,7 @@ exports.buscarMinhaSenha = (deviceId) => {
             numero: minhaSenha.numero,
             tipo: minhaSenha.tipo,
             status: minhaSenha.status,
+            guiche: minhaSenha.guiche,
             codigo_verificacao: minhaSenha.codigo_verificacao,
             pessoasNaFrente,
             tempoEstimadoMinutos
@@ -400,26 +526,37 @@ exports.cancelarMinhaSenha = (deviceId) => {
 
       const senha = result.rows[0];
 
-      if (senha.status === "chamando") {
-        return resolve({
-          mensagem: "Sua senha já está em atendimento e não pode ser cancelada."
-        });
-      }
-
       const sqlUpdate = `
-          UPDATE senha
-          SET status = 'cancelado'
-          WHERE id = $1
-          RETURNING *
+          WITH anterior AS (
+            SELECT *, updated_at AS atendimento_inicio
+            FROM senha
+            WHERE id = $1
+          ),
+          atualizada AS (
+            UPDATE senha s
+            SET status = 'cancelado',
+                updated_at = CURRENT_TIMESTAMP,
+                cancelado_em = CURRENT_TIMESTAMP
+            FROM anterior a
+            WHERE s.id = a.id
+            RETURNING s.*, a.status AS status_anterior, a.atendimento_inicio
+          )
+          SELECT * FROM atualizada
       `;
 
-      db.query(sqlUpdate, [senha.id], (err, updateResult) => {
+      db.query(sqlUpdate, [senha.id], async (err, updateResult) => {
 
         if (err) return reject(err);
 
-        resolve({
-          mensagem: "Senha cancelada com sucesso"
-        });
+        const senhaCancelada = updateResult.rows[0] || null;
+        if (!senhaCancelada) return resolve(null);
+
+        try {
+          await registrarAtendimento(senhaCancelada, null, "Senha cancelada pelo cliente");
+          resolve(senhaCancelada);
+        } catch (err) {
+          reject(err);
+        }
       });
     });
   });

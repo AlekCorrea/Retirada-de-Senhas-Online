@@ -8,6 +8,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
   const isAdmin = ref(localStorage.getItem('isAdmin') === 'true')
   const isGoogleUser = ref(localStorage.getItem('isGoogleUser') === 'true')
+  const guiche = ref(localStorage.getItem('guiche') || '')
 
   const isLoggedIn = computed(() => !!token.value)
 
@@ -31,15 +32,23 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('isGoogleUser', isGoogle)
   }
 
+  const setGuiche = (novoGuiche) => {
+    guiche.value = novoGuiche || ''
+    if (guiche.value) localStorage.setItem('guiche', guiche.value)
+    else localStorage.removeItem('guiche')
+  }
+
   const logout = () => {
     token.value = null
     user.value = null
     isAdmin.value = false
     isGoogleUser.value = false
+    guiche.value = ''
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     localStorage.removeItem('isAdmin')
     localStorage.removeItem('isGoogleUser')
+    localStorage.removeItem('guiche')
     router.push('/')
   }
 
@@ -64,11 +73,13 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAdmin,
     isGoogleUser,
+    guiche,
     isLoggedIn,
     setToken,
     setUser,
     setAdmin,
     setIsGoogleUser,
+    setGuiche,
     logout,
     handleGoogleCallback
   }

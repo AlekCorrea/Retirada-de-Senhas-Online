@@ -18,6 +18,18 @@
           <input id="senha" v-model="senha" type="password" placeholder="Sua senha" required class="form-input" />
         </div>
 
+        <div class="form-group">
+          <label for="guiche">Guiche de atendimento</label>
+          <select id="guiche" v-model="guiche" required class="form-input">
+            <option value="Guiche 01">Guiche 01</option>
+            <option value="Guiche 02">Guiche 02</option>
+            <option value="Guiche 03">Guiche 03</option>
+            <option value="Guiche 04">Guiche 04</option>
+            <option value="Guiche 05">Guiche 05</option>
+            <option value="Guiche 06">Guiche 06</option>
+          </select>
+        </div>
+
         <button type="submit" :disabled="loading" class="btn-login">
           <span v-if="loading" class="spinner"></span>
           <span v-else>✓ Entrar</span>
@@ -54,6 +66,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const email = ref('')
 const senha = ref('')
+const guiche = ref(localStorage.getItem('guiche') || 'Guiche 01')
 const loading = ref(false)
 const erro = ref('')
 
@@ -62,22 +75,16 @@ const fazerLogin = async () => {
   loading.value = true
   erro.value = ''
   try {
-    const r = await axios.post('/auth/login-admin', { email: email.value, senha: senha.value })
-    authStore.setToken(r.data.token)
-    authStore.setUser({ email: email.value, perfil: 'admin' })
-    authStore.setAdmin(true)
-    router.push('/admin')
-  } catch (adminError) {
-    try {
-      const r = await axios.post('/auth/login-atendente', { email: email.value, senha: senha.value })
-      const { token, usuario } = r.data
-      authStore.setToken(token)
-      authStore.setUser(usuario)
-      authStore.setAdmin(usuario.perfil === 'administrador')
-      router.push(usuario.perfil === 'administrador' ? '/admin' : usuario.perfil === 'atendente' ? '/atendente' : '/')
-    } catch (e) {
-      erro.value = e.response?.data?.mensagem || 'Erro ao fazer login. Verifique suas credenciais.'
-    }
+    const r = await axios.post('/auth/login-atendente', { email: email.value, senha: senha.value })
+    const { token, usuario } = r.data
+    authStore.setToken(token)
+    authStore.setUser(usuario)
+    authStore.setAdmin(usuario.perfil === 'administrador')
+    authStore.setIsGoogleUser(false)
+    authStore.setGuiche(usuario.perfil === 'atendente' ? guiche.value : '')
+    router.push(usuario.perfil === 'administrador' ? '/admin' : '/atendente')
+  } catch (e) {
+    erro.value = e.response?.data?.mensagem || 'Erro ao fazer login. Verifique suas credenciais.'
   } finally { loading.value = false }
 }
 </script>

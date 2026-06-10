@@ -59,7 +59,7 @@
 
         <div v-if="senhaRetirada.status === 'chamando'" class="status-chamando">
           <span class="icone-status">📢</span>
-          <span>Sua senha está sendo chamada!</span>
+          <span>Sua senha está sendo chamada! Dirija-se ao {{ senhaRetirada.guiche || 'guiche indicado' }}.</span>
         </div>
 
         <div class="previsao-card" :class="senhaRetirada.tipo">
@@ -111,9 +111,11 @@ import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useSocket } from '../composables/useSocket'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { connect, registerDevice, on, off } = useSocket()
 const tipo = ref('normal')
 const carregando = ref(false)
 const carregandoLogin = ref(false)
@@ -123,6 +125,10 @@ const tempoEstimado = ref(15)
 const deviceId = ref('')
 const senhaFinalizada = ref(false)
 let intervaloMinhaSenha = null
+
+const registrarDispositivoSocket = () => {
+  if (deviceId.value) registerDevice(deviceId.value, 'ticket')
+}
 
 const carregarEstadoSalvo = () => {
   const salva = localStorage.getItem('senhaRetirada')
@@ -137,6 +143,13 @@ onMounted(() => {
     router.replace('/client')
   }
   carregarEstadoSalvo()
+  connect()
+  registrarDispositivoSocket()
+  on('queue-updated', verificarMinhaSenha)
+  on('your-turn', atualizarSenhaPorEvento)
+  on('ticket-called', atualizarSenhaPorEvento)
+  on('attendance-finished', finalizarSenhaPorEvento)
+  on('ticket-cancelled', finalizarSenhaPorEvento)
   if (senhaRetirada.value) iniciarPollingSenha()
 })
 
@@ -169,10 +182,35 @@ const verificarMinhaSenha = async () => {
       clearInterval(intervaloMinhaSenha)
       setTimeout(() => limparEstadoSenha(), 5000)
     } else if (r.data?.numero) {
-      senhaRetirada.value = { ...senhaRetirada.value, status: r.data.status, pessoasNaFrente: r.data.pessoasNaFrente, tempoEstimadoMinutos: r.data.tempoEstimadoMinutos }
+      senhaRetirada.value = { ...senhaRetirada.value, status: r.data.status, guiche: r.data.guiche, pessoasNaFrente: r.data.pessoasNaFrente, tempoEstimadoMinutos: r.data.tempoEstimadoMinutos }
       salvarEstado()
     }
   } catch (e) {}
+}
+
+const eventoEhDaMinhaSenha = (payload) => {
+  const senha = payload?.senha || payload
+  if (!senhaRetirada.value || !senha) return false
+  return senha.dispositivo_id === deviceId.value || senha.numero === senhaRetirada.value.numero
+}
+
+const atualizarSenhaPorEvento = async (payload) => {
+  if (!eventoEhDaMinhaSenha(payload)) return
+  const senha = payload?.senha || payload
+  senhaRetirada.value = {
+    ...senhaRetirada.value,
+    ...senha,
+    status: senha.status || 'chamando'
+  }
+  salvarEstado()
+  await verificarMinhaSenha()
+}
+
+const finalizarSenhaPorEvento = (payload) => {
+  if (!eventoEhDaMinhaSenha(payload)) return
+  senhaFinalizada.value = true
+  if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
+  setTimeout(() => limparEstadoSenha(), 5000)
 }
 
 const iniciarPollingSenha = () => {
@@ -183,6 +221,11 @@ const iniciarPollingSenha = () => {
 onBeforeUnmount(() => {
   salvarEstado()
   if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
+  off('queue-updated', verificarMinhaSenha)
+  off('your-turn', atualizarSenhaPorEvento)
+  off('ticket-called', atualizarSenhaPorEvento)
+  off('attendance-finished', finalizarSenhaPorEvento)
+  off('ticket-cancelled', finalizarSenhaPorEvento)
 })
 
 const retirarSenha = async () => {
@@ -194,6 +237,7 @@ const retirarSenha = async () => {
       localStorage.setItem('deviceId', deviceId.value)
     }
     const r = await axios.post('/api/senha/publica', { tipo: tipo.value, deviceId: deviceId.value })
+    registrarDispositivoSocket()
     senhaRetirada.value = r.data
     tempoEstimado.value = r.data.tempoEstimadoMinutos || (r.data.pessoasNaFrente || 0) * 5
     salvarEstado()
@@ -205,7 +249,14 @@ const retirarSenha = async () => {
   }
 }
 
-const cancelarSenha = () => limparEstadoSenha()
+const cancelarSenha = async () => {
+  try {
+    await axios.put('/api/minha-senha/cancelar/publica', { deviceId: deviceId.value })
+  } catch (e) {}
+  senhaFinalizada.value = true
+  if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
+  setTimeout(() => limparEstadoSenha(), 5000)
+}
 
 const loginComGoogle = async () => {
   carregandoLogin.value = true

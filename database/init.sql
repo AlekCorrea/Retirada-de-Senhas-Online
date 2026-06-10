@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS atendentes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table: admins (legacy - kept for compatibility)
+-- Table: admins (legacy - no longer used for authentication)
 CREATE TABLE IF NOT EXISTS admins (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS senha (
     status VARCHAR(20) NOT NULL CHECK (status IN ('esperando', 'chamando', 'atendido', 'cancelado')),
     dispositivo_id VARCHAR(255),
     codigo_verificacao VARCHAR(10),
+    guiche VARCHAR(50),
     atendente_id INTEGER REFERENCES atendentes(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -79,11 +80,6 @@ CREATE INDEX IF NOT EXISTS idx_atendentes_perfil ON atendentes(perfil);
 INSERT INTO atendentes (nome, email, senha, perfil, ativo) VALUES 
 ('Atendente Padrão', 'atendente@senhas.com', 'senha123', 'atendente', true),
 ('Administrador Padrão', 'admin@senhas.com', 'admin123', 'administrador', true)
-ON CONFLICT (email) DO NOTHING;
-
--- Insert default admin user (legacy - for compatibility)
-INSERT INTO admins (nome, email, senha) VALUES 
-('Administrador', 'admin@senhas.com', 'admin123')
 ON CONFLICT (email) DO NOTHING;
 
 -- Create view for queue statistics

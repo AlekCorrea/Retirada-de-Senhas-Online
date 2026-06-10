@@ -6,7 +6,7 @@
         <div class="avatar-circle"></div>
         <div class="topbar-info">
           <span class="topbar-title">Bem vindo Atendente</span>
-          <span class="topbar-sub">Chame a primeira senha</span>
+          <span class="topbar-sub">{{ authStore.guiche || 'Guiche nao selecionado' }} - Chame a primeira senha</span>
         </div>
       </div>
       <button @click="logout" class="btn-sair">Sair</button>
@@ -23,6 +23,7 @@
               <span class="sa-codigo-label">Código da senha:</span>
               <span class="sa-codigo-valor">{{ senhaAtual.codigo_verificacao }}</span>
             </div>
+            <div class="sa-guiche">{{ senhaAtual.guiche || authStore.guiche }}</div>
             <div class="sa-tipo-badge" :class="senhaAtual.tipo">
               {{ senhaAtual.tipo === 'prioritario' ? '⭐ Prioritária' : '📋 Normal' }}
             </div>
@@ -39,11 +40,11 @@
           <span v-if="loading" class="spinner"></span>
           <span v-else>Chamar senha</span>
         </button>
-        <button @click="cancelarSenha" :disabled="!senhaAtual" class="btn-acao btn-excluir">
-          Excluir senha
+        <button @click="cancelarSenha" :disabled="!senhaAtual" class="btn-acao btn-cancelar">
+          Cancelar atendimento
         </button>
-        <button @click="finalizarAtendimento" :disabled="!senhaAtual" class="btn-acao btn-repetir">
-          Repetir senha
+        <button @click="finalizarAtendimento" :disabled="!senhaAtual" class="btn-acao btn-finalizar">
+          Finalizar atendimento
         </button>
       </div>
 
@@ -101,10 +102,12 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useSocket } from '../composables/useSocket'
 import axios from 'axios'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { connect, joinAdmin, on, off } = useSocket()
 const loading = ref(false)
 const mensagem = ref('')
 const tipoMensagem = ref('success')
@@ -137,8 +140,8 @@ const carregarFila = async () => {
 const chamarProxima = async () => {
   loading.value = true
   try {
-    const r = await axios.put('/api/chamar', {}, { headers: { Authorization: `Bearer ${authStore.token}` } })
-    mensagem.value = r.data.mensagem === 'Nenhuma senha na fila' ? 'Nenhuma senha na fila!' : `Senha ${r.data.numero} chamada!`
+    const r = await axios.put('/api/chamar', { guiche: authStore.guiche }, { headers: { Authorization: `Bearer ${authStore.token}` } })
+    mensagem.value = r.data.mensagem === 'Nenhuma senha na fila' ? 'Nenhuma senha na fila!' : `Senha ${r.data.numero} chamada no ${r.data.guiche || authStore.guiche}!`
     tipoMensagem.value = r.data.mensagem === 'Nenhuma senha na fila' ? 'error' : 'success'
     await carregarFila()
     setTimeout(() => mensagem.value = '', 3000)
@@ -178,13 +181,17 @@ const cancelarSenha = async () => {
 
 const logout = () => { authStore.logout(); router.push('/login') }
 
+const onQueueUpdated = () => { carregarFila() }
+
 onMounted(() => {
   if (!authStore.isLoggedIn) { router.push('/login'); return }
   carregarFila()
-  intervalo = setInterval(carregarFila, 3000)
+  connect()
+  joinAdmin()
+  on('queue-updated', onQueueUpdated)
 })
 
-onUnmounted(() => { if (intervalo) clearInterval(intervalo) })
+onUnmounted(() => { off('queue-updated', onQueueUpdated) })
 </script>
 
 <style scoped>
@@ -300,6 +307,18 @@ onUnmounted(() => { if (intervalo) clearInterval(intervalo) })
   color: #0F1A52;
 }
 
+.sa-guiche {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 10px 28px;
+  border-radius: 20px;
+  background: #0F1A52;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+}
+
 .sem-senha-atual {
   padding: 60px 20px;
   color: #555;
@@ -329,9 +348,9 @@ onUnmounted(() => { if (intervalo) clearInterval(intervalo) })
 .btn-acao:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
 .btn-acao:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.btn-chamar { background: #0C56DA; }
-.btn-excluir { background: #E93A32; }
-.btn-repetir { background: #0C56DA; }
+        .btn-chamar { background: #0C56DA; }
+        .btn-cancelar { background: #E93A32; }
+        .btn-finalizar { background: #22c55e; }
 
 /* Filas */
 .filas-grid {

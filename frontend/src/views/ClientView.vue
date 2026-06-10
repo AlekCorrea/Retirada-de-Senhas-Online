@@ -4,12 +4,21 @@
     <div class="card-principal">
       <!-- Cabeçalho do card -->
       <div class="card-header">
-        <h1>Bem vindo {{ authStore.user?.nome?.split(' ')[0] || 'Usuário' }}</h1>
-        <p>Retire sua senha</p>
+        <div>
+          <h1>Bem vindo {{ authStore.user?.nome?.split(' ')[0] || 'Usuário' }}</h1>
+          <p>Retire sua senha</p>
+        </div>
+        <button @click="logout" class="btn-sair">Sair</button>
+      </div>
+
+      <div v-if="senhaConcluida" class="secao-finalizada">
+        <span class="icone-finalizada">âœ…</span>
+        <h2>Atendimento Finalizado!</h2>
+        <p>{{ mensagemConclusao }}</p>
       </div>
 
       <!-- Senha existente do TicketView -->
-      <div v-if="senhaExistente && !senhaDoSistema">
+      <div v-else-if="senhaExistente && !senhaDoSistema">
         <div class="senha-existente-aviso">
           <span>🎟️</span>
           <div>
@@ -57,7 +66,7 @@
         </div>
 
         <div v-if="senhaDoSistema.status === 'chamando'" class="status-chamando">
-          📢 Sua senha está sendo chamada! Dirija-se ao atendimento.
+          📢 Sua senha está sendo chamada! Dirija-se ao {{ senhaDoSistema.guiche || 'guiche indicado' }}.
         </div>
 
         <div class="previsao-card">
@@ -72,7 +81,7 @@
           <p class="codigo-hint">Guarde este código para comprovar sua senha</p>
         </div>
 
-        <button @click="cancelarSenha" :disabled="queueStore.loading || senhaDoSistema.status === 'chamando'" class="btn-cancelar">
+        <button @click="cancelarSenha" :disabled="queueStore.loading" class="btn-cancelar">
           ✗ Cancelar Senha
         </button>
       </div>
@@ -102,19 +111,55 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useQueueStore } from '../stores/queue'
+import { useSocket } from '../composables/useSocket'
+import SenhaCard from '../components/SenhaCard.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const queueStore = useQueueStore()
+const { connect, registerDevice, on, off } = useSocket()
 const tipoSelecionado = ref('normal')
 const historico = ref([])
 const senhaExistente = ref(null)
+const senhaConcluida = ref(false)
+const mensagemConclusao = ref('Seu atendimento foi concluido com sucesso.')
+let timeoutConclusao = null
 
-const senhaDoSistema = computed(() => queueStore.minhaSenha)
+const getDeviceId = () => localStorage.getItem('deviceId')
+
+const registrarDispositivoSocket = () => {
+  const deviceId = getDeviceId()
+  if (deviceId) registerDevice(deviceId, 'client')
+}
+
+const finalizarFluxoSenha = async (mensagem = 'Seu atendimento foi concluido com sucesso.') => {
+  mensagemConclusao.value = mensagem
+  senhaConcluida.value = true
+  queueStore.minhaSenha = null
+  await carregarHistorico(true)
+
+  if (timeoutConclusao) clearTimeout(timeoutConclusao)
+  timeoutConclusao = setTimeout(() => {
+    senhaConcluida.value = false
+    timeoutConclusao = null
+  }, 5000)
+}
+
+const senhaDoSistema = computed(() => {
+  const s = queueStore.minhaSenha
+  // Se não tem senha ou é apenas mensagem de "nenhuma encontrada", retorna null
+  if (!s || s.mensagem) return null
+  return s
+})
+
+// Controla se a tela deve mostrar o estado "chamando" ou o formulário
+const mostrarChamando = computed(() => {
+  return senhaDoSistema.value && senhaDoSistema.value.status === 'chamando'
+})
 
 const processGoogleCallback = () => {
   const urlParams = new URLSearchParams(window.location.search)
@@ -140,6 +185,27 @@ const processGoogleCallback = () => {
   return false
 }
 
+const verificarStatusSenha = async (silent = false) => {
+  try {
+    await queueStore.fetchMinhaSenha(authStore.token, { silent })
+    const s = queueStore.minhaSenha
+    // Se a senha foi atendida ou cancelada pelo atendente, retorna ao início
+    if (s && (s.status === 'atendido' || s.status === 'cancelado')) {
+      await finalizarFluxoSenha()
+    }
+  } catch (e) {}
+}
+
+const atualizarPorEvento = async (payload) => {
+  const senha = payload?.senha || payload
+  const deviceId = getDeviceId()
+
+  if (senha?.dispositivo_id && deviceId && senha.dispositivo_id !== deviceId) return
+
+  await verificarStatusSenha(true)
+  await carregarHistorico(true)
+}
+
 onMounted(() => {
   if (!processGoogleCallback()) {
     if (!authStore.isLoggedIn) { router.push('/login'); return }
@@ -149,15 +215,32 @@ onMounted(() => {
     try { senhaExistente.value = JSON.parse(senhaSalva) } catch (e) { localStorage.removeItem('senhaExistente') }
   }
   Promise.all([queueStore.fetchMinhaSenha(authStore.token), carregarHistorico()])
+  connect()
+  registrarDispositivoSocket()
+  on('queue-updated', atualizarPorEvento)
+  on('your-turn', atualizarPorEvento)
+  on('ticket-called', atualizarPorEvento)
+  on('attendance-finished', atualizarPorEvento)
+  on('ticket-cancelled', atualizarPorEvento)
 })
 
-const carregarHistorico = async () => {
-  try { historico.value = await queueStore.fetchHistoricoSenhas(authStore.token) } catch (e) {}
+onUnmounted(() => {
+  if (timeoutConclusao) clearTimeout(timeoutConclusao)
+  off('queue-updated', atualizarPorEvento)
+  off('your-turn', atualizarPorEvento)
+  off('ticket-called', atualizarPorEvento)
+  off('attendance-finished', atualizarPorEvento)
+  off('ticket-cancelled', atualizarPorEvento)
+})
+
+const carregarHistorico = async (silent = false) => {
+  try { historico.value = await queueStore.fetchHistoricoSenhas(authStore.token, { silent }) } catch (e) {}
 }
 
 const criarSenha = async () => {
   try {
     await queueStore.criarSenha(tipoSelecionado.value, authStore.token)
+    registrarDispositivoSocket()
     if (senhaExistente.value) { senhaExistente.value = null; localStorage.removeItem('senhaExistente') }
     await carregarHistorico()
   } catch (e) {}
@@ -165,7 +248,10 @@ const criarSenha = async () => {
 
 const cancelarSenha = async () => {
   if (confirm('Tem certeza que deseja cancelar sua senha?')) {
-    try { await queueStore.cancelarSenha(authStore.token); await carregarHistorico() } catch (e) {}
+    try {
+      await queueStore.cancelarSenha(authStore.token)
+      await finalizarFluxoSenha('Sua senha foi cancelada com sucesso.')
+    } catch (e) {}
   }
 }
 
@@ -180,6 +266,7 @@ const cancelarSenhaExistente = async () => {
 const logout = () => {
   localStorage.removeItem('senhaExistente')
   authStore.logout()
+  router.push('/')
 }
 
 const getStatusLabel = (s) => ({ esperando: 'Pendente', chamando: 'Chamando', atendido: 'Atendido', cancelado: 'Cancelado' }[s] || s)
@@ -235,7 +322,13 @@ const formatarData = (d) => {
   box-shadow: 0 20px 60px rgba(0,0,0,0.15);
 }
 
-.card-header { margin-bottom: 32px; }
+.card-header {
+  margin-bottom: 32px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
 
 .card-header h1 {
   font-family: 'Inter', sans-serif;
@@ -433,6 +526,29 @@ const formatarData = (d) => {
 .btn-cancelar:hover:not(:disabled) { background: #c0392b; }
 .btn-cancelar:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.secao-finalizada {
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.icone-finalizada {
+  display: block;
+  font-size: 4rem;
+  margin-bottom: 16px;
+}
+
+.secao-finalizada h2 {
+  color: #2B387E;
+  font-family: 'Inter', sans-serif;
+  font-size: 2rem;
+  margin: 0 0 12px;
+}
+
+.secao-finalizada p {
+  color: #555;
+  margin: 0;
+}
+
 /* Histórico */
 .historico-section {
   margin-top: 48px;
@@ -509,6 +625,7 @@ const formatarData = (d) => {
 
 @media (max-width: 600px) {
   .card-principal { padding: 28px 20px; margin: 20px 10px; }
+  .card-header { align-items: center; }
   .opcoes-tipo { grid-template-columns: 1fr; }
   .numero { font-size: 4rem; padding: 24px; }
   .user-name-top { display: none; }

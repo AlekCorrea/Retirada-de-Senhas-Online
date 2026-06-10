@@ -7,6 +7,8 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const passport = require("passport");
+const db = require("./config/db");
+const { hashPassword, isBcryptHash } = require("./utils/passwordHash");
 
 const app = express();
 const server = http.createServer(app);
@@ -16,6 +18,35 @@ const { initializeSocket } = require("./websocket/socket");
 
 // Importar configurações
 require("./config/passport");
+
+const migrateLegacyStaffPasswords = async () => {
+    try {
+        const result = await db.query("SELECT id, senha FROM atendentes");
+        const legacyUsers = result.rows.filter((user) => !isBcryptHash(user.senha));
+
+        await Promise.all(legacyUsers.map(async (user) => {
+            const senhaHash = await hashPassword(user.senha);
+            return db.query(
+                "UPDATE atendentes SET senha = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                [senhaHash, user.id]
+            );
+        }));
+
+        if (legacyUsers.length > 0) {
+            console.log(`Senhas legadas migradas para bcrypt: ${legacyUsers.length}`);
+        }
+    } catch (err) {
+        console.error("Erro ao migrar senhas legadas:", err.message);
+    }
+};
+
+const ensureGuicheColumn = async () => {
+    try {
+        await db.query("ALTER TABLE senha ADD COLUMN IF NOT EXISTS guiche VARCHAR(50)");
+    } catch (err) {
+        console.error("Erro ao garantir coluna guiche:", err.message);
+    }
+};
 
 // Importar rotas
 const authRoutes = require("./routes/authRoutes");
@@ -38,12 +69,12 @@ app.use(cors({
 // Morgan para logging
 app.use(morgan("combined"));
 
-// Rate limiting
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100 // limite de 100 requisições por IP
-});
-app.use(limiter);
+// Rate limiting - desabilitado para evitar 429 com polling
+// const limiter = rateLimit({
+//     windowMs: 15 * 60 * 1000,
+//     max: 100
+// });
+// app.use(limiter);
 
 // Body parser
 app.use(express.json());
@@ -124,6 +155,7 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
+Promise.all([migrateLegacyStaffPasswords(), ensureGuicheColumn()]).finally(() => {
 server.listen(PORT, () => {
     console.log(`
 ╔════════════════════════════════════════════════════════════╗
@@ -136,6 +168,7 @@ server.listen(PORT, () => {
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
     `);
+});
 });
 
 // Tratamento de erros não capturados

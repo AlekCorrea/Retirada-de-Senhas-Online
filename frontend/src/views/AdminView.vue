@@ -149,17 +149,18 @@
 import { onMounted, ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useSocket } from '../composables/useSocket'
 import axios from 'axios'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { connect, joinAdmin, on, off } = useSocket()
 const queueStats = ref(null)
 const senhas = ref([])
 const loading = ref(false)
 const activeTab = ref('fila')
 const users = ref([])
 const newUser = ref({ nome: '', email: '', senha: '', perfil: 'atendente' })
-let updateInterval = null
 
 const tabs = [
   { id: 'fila', label: 'Fila' },
@@ -222,10 +223,16 @@ onMounted(() => {
   if (!authStore.isLoggedIn || !authStore.isAdmin) { router.push('/login'); return }
   fetchUsers()
   fetchQueueData()
-  updateInterval = setInterval(fetchQueueData, 5000)
+  connect()
+  joinAdmin()
+  on('queue-updated', fetchQueueData)
+  on('queue-stats-updated', fetchQueueData)
 })
 
-onUnmounted(() => { if (updateInterval) clearInterval(updateInterval) })
+onUnmounted(() => {
+  off('queue-updated', fetchQueueData)
+  off('queue-stats-updated', fetchQueueData)
+})
 </script>
 
 <style scoped>
