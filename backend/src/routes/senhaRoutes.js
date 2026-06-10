@@ -9,6 +9,19 @@ const auth = require("../middlewares/authMiddleware");
 // middleware admin
 const admin = require("../middlewares/adminMiddleware");
 
+// middleware atendente
+const atendente = require("../middlewares/atendenteMiddleware");
+
+/* ==========================================
+   PÚBLICO - SEM AUTENTICAÇÃO
+========================================== */
+
+// retirar senha pública (sem login)
+router.post("/senha/publica", controller.criarPublica);
+
+// ver minha senha pública (sem login)
+router.get("/minha-senha/publica", controller.minhaSenhaPublica);
+
 /* ==========================================
    CLIENTE
 ========================================== */
@@ -16,6 +29,14 @@ const admin = require("../middlewares/adminMiddleware");
 // retirar senha (cliente logado Google)
 router.post("/senha", auth, controller.criar);
 
+// ver posição na fila
+router.get("/minha-senha", auth, controller.minhaSenha);
+
+// cancelar minha senha
+router.put("/minha-senha/cancelar", auth, controller.cancelarMinhaSenha);
+
+// histórico de senhas do usuário
+router.get("/meu-historico", auth, controller.meuHistorico);
 
 /* ==========================================
    ADMIN
@@ -33,10 +54,27 @@ router.put("/senha/finalizar/:id", admin, controller.finalizar);
 // cancelar senha
 router.put("/senha/cancelar/:id", admin, controller.cancelar);
 
-// ver posição na fila
-router.get("/minha-senha", auth, controller.minhaSenha);
+/* ==========================================
+   ATENDENTE
+========================================== */
 
-// cancelar minha senha
-router.put("/minha-senha/cancelar", auth, controller.cancelarMinhaSenha);
+// obter fila com estatísticas
+router.get("/fila", atendente, controller.obterFila);
+
+// chamar próxima (atendente também pode)
+router.put("/chamar", atendente, controller.chamar);
+
+// finalizar senha (atendente também pode)
+router.put("/finalizar/:id", atendente, controller.finalizar);
+
+// cancelar senha (atendente também pode)
+router.put("/cancelar/:id", atendente, controller.cancelar);
+
+/* ==========================================
+   PÚBLICO - STATUS DA FILA
+========================================== */
+
+// status público da fila (sem autenticação)
+router.get("/senhas/status", controller.statusFilaPublica);
 
 module.exports = router;

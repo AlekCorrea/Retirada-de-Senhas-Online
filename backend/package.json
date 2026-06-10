@@ -1,15 +1,16 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sistema de Senhas Online para Atendimento - Backend API",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --coverage",
+    "test:watch": "jest --watch"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["senhas", "atendimento", "fila"],
+  "author": "Alessandra Corrêa, Célia Raizer, Everton Serighelli",
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.6",
@@ -17,13 +18,19 @@
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.22.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.20.0",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "bcryptjs": "^2.4.3",
+    "express-validator": "^7.0.0",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
   }
 }

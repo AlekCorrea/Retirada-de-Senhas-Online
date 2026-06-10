@@ -1,449 +1,448 @@
 const db = require("../config/db");
+const crypto = require("crypto");
 
 // Controle simples 3x1 em memória
 let contadorPrioritarias = 0;
+
+// Tempo médio de atendimento em minutos (estimativa)
+const TEMPO_MEDIO_ATENDIMENTO = 5;
+
+/**
+ * Calcula o tempo estimado de atendimento para uma senha na posição da fila.
+ * Considera a regra 3x1 (3 prioritárias, 1 normal).
+ * 
+ * @param {number} senhaId - ID da senha recém-criada
+ * @param {string} tipo - 'normal' ou 'prioritario'
+ * @returns {Promise<{tempoEstimadoMinutos: number, pessoasNaFrente: number}>}
+ */
+function calcularTempoEstimado(senhaId, tipo) {
+  return new Promise((resolve, reject) => {
+    // Buscar todas as senhas esperando, ordenadas por prioridade e ID
+    const sqlFila = `
+      SELECT id, tipo
+      FROM senha
+      WHERE status = 'esperando'
+      ORDER BY id ASC
+    `;
+
+    db.query(sqlFila, (err, result) => {
+      if (err) return reject(err);
+
+      const fila = result.rows;
+
+      // Simular a ordem de chamada com a regra 3x1
+      const ordemChamada = [];
+      let contadorP = 0;
+
+      // Criar uma cópia da fila para simular
+      let filaRestante = [...fila];
+
+      while (filaRestante.length > 0) {
+        let proxima = null;
+
+        if (contadorP < 3) {
+          // Priorizar prioritários
+          const idx = filaRestante.findIndex(s => s.tipo === 'prioritario');
+          if (idx !== -1) {
+            proxima = filaRestante.splice(idx, 1)[0];
+            contadorP++;
+          } else {
+            proxima = filaRestante.shift();
+            contadorP = 0;
+          }
+        } else {
+          // Forçar normal
+          const idx = filaRestante.findIndex(s => s.tipo === 'normal');
+          if (idx !== -1) {
+            proxima = filaRestante.splice(idx, 1)[0];
+            contadorP = 0;
+          } else {
+            proxima = filaRestante.shift();
+            contadorP++;
+          }
+        }
+
+        if (proxima) {
+          ordemChamada.push(proxima);
+        }
+      }
+
+      // Encontrar a posição da senha na ordem de chamada
+      const posicao = ordemChamada.findIndex(s => s.id === senhaId);
+      const pessoasNaFrente = posicao >= 0 ? posicao : 0;
+      const tempoEstimadoMinutos = pessoasNaFrente * TEMPO_MEDIO_ATENDIMENTO;
+
+      resolve({
+        tempoEstimadoMinutos,
+        pessoasNaFrente
+      });
+    });
+  });
+}
+
+// Gerar código de verificação aleatório de 8 caracteres (letras e números)
+function gerarCodigoVerificacao() {
+  const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let codigo = "";
+  for (let i = 0; i < 8; i++) {
+    codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+  }
+  return codigo;
+}
 
 /* ===================================================
    CRIAR SENHA
    normal -> N001
    prioritario -> P001
-=================================================== */
-exports.criarSenha = (tipo, email) => {
-    return new Promise((resolve, reject) => {
+   =================================================== */
+exports.criarSenha = (tipo, deviceId) => {
+  return new Promise((resolve, reject) => {
 
-        // verificar se já existe senha ativa
-        const sqlVerifica = `
-            SELECT * FROM senha
-            WHERE email_usuario = ?
-            AND status IN ('esperando', 'chamando')
-            LIMIT 1
+    // Verificar se este dispositivo já possui uma senha ativa
+    const sqlVerifica = `
+        SELECT * FROM senha
+        WHERE dispositivo_id = $1
+        AND status IN ('esperando', 'chamando')
+        LIMIT 1
+    `;
+
+    db.query(sqlVerifica, [deviceId], (err, result) => {
+      if (err) return reject(err);
+
+      if (result.rows.length > 0) {
+        return reject(
+          new Error("Este computador já possui uma senha ativa.")
+        );
+      }
+
+      const prefixo =
+        tipo === "prioritario" ? "P" : "N";
+
+      const sqlUltima = `
+          SELECT numero
+          FROM senha
+          WHERE tipo = $1
+          ORDER BY id DESC
+          LIMIT 1
+      `;
+
+      db.query(sqlUltima, [tipo], (err, result) => {
+        if (err) return reject(err);
+
+        let proximoNumero = 1;
+
+        if (
+          result.rows.length > 0 &&
+          result.rows[0].numero
+        ) {
+          const ultimo =
+            result.rows[0].numero.substring(1);
+
+          proximoNumero =
+            parseInt(ultimo) + 1;
+        }
+
+        const numeroFormatado =
+          prefixo +
+          String(proximoNumero).padStart(3, "0");
+
+        const codigoVerificacao = gerarCodigoVerificacao();
+
+        const sqlInsert = `
+            INSERT INTO senha
+            (numero, tipo, status, dispositivo_id, codigo_verificacao)
+            VALUES ($1, $2, 'esperando', $3, $4)
+            RETURNING *
         `;
 
-        db.query(sqlVerifica, [email], (err, existe) => {
+        db.query(
+          sqlInsert,
+          [numeroFormatado, tipo, deviceId, codigoVerificacao],
+          (err, insertResult) => {
             if (err) return reject(err);
 
-            if (existe.length > 0) {
-                return reject(
-                    new Error("Você já possui uma senha ativa.")
-                );
-            }
+            const novaSenhaId = insertResult.rows[0].id;
 
-            const prefixo =
-                tipo === "prioritario" ? "P" : "N";
-
-            const sqlUltima = `
-                SELECT numero
-                FROM senha
-                WHERE tipo = ?
-                ORDER BY id DESC
-                LIMIT 1
-            `;
-
-            db.query(sqlUltima, [tipo], (err, result) => {
-                if (err) return reject(err);
-
-                let proximoNumero = 1;
-
-                if (
-                    result.length > 0 &&
-                    result[0].numero
-                ) {
-                    const ultimo =
-                        result[0].numero.substring(1);
-
-                    proximoNumero =
-                        parseInt(ultimo) + 1;
-                }
-
-                const numeroFormatado =
-                    prefixo +
-                    String(proximoNumero).padStart(3, "0");
-
-                const sqlInsert = `
-                    INSERT INTO senha
-                    (numero, tipo, status, email_usuario)
-                    VALUES (?, ?, 'esperando', ?)
-                `;
-
-                db.query(
-                    sqlInsert,
-                    [numeroFormatado, tipo, email],
-                    (err, insertResult) => {
-                        if (err) return reject(err);
-
-                        resolve({
-                            id: insertResult.insertId,
-                            numero: numeroFormatado,
-                            tipo,
-                            status: "esperando",
-                            email_usuario: email
-                        });
-                    }
-                );
-            });
-        });
+            // Calcular tempo estimado considerando a regra 3x1
+            calcularTempoEstimado(novaSenhaId, tipo)
+              .then(({ tempoEstimadoMinutos, pessoasNaFrente }) => {
+                resolve({
+                  id: novaSenhaId,
+                  numero: numeroFormatado,
+                  tipo,
+                  status: "esperando",
+                  codigo_verificacao: codigoVerificacao,
+                  pessoasNaFrente,
+                  tempoEstimadoMinutos
+                });
+              })
+              .catch(err => reject(err));
+          }
+        );
+      });
     });
+  });
 };
 
 /* ===================================================
    LISTAR TODAS
-=================================================== */
+   =================================================== */
 exports.listarSenhas = () => {
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
 
-        const sql = `
-            SELECT *
-            FROM senha
-            ORDER BY id ASC
-        `;
+    const sql = `
+        SELECT *
+        FROM senha
+        ORDER BY id ASC
+    `;
 
-        db.query(sql, (err, result) => {
-            if (err) return reject(err);
-            resolve(result);
-        });
+    db.query(sql, (err, result) => {
+      if (err) return reject(err);
+      resolve(result.rows);
     });
+  });
 };
 
 /* ===================================================
    CHAMAR PRÓXIMA (REGRA 3x1)
    3 prioritárias e 1 normal
-=================================================== */
+   =================================================== */
 exports.chamarProxima = () => {
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
 
-        // Finaliza quem estava chamando
-        const finalizarAnterior = `
+    const finalizarAnterior = `
+        UPDATE senha
+        SET status = 'atendido'
+        WHERE status = 'chamando'
+    `;
+
+    db.query(finalizarAnterior, (err) => {
+      if (err) return reject(err);
+
+      let sqlBusca = "";
+
+      if (contadorPrioritarias < 3) {
+        sqlBusca = `
+            SELECT *
+            FROM senha
+            WHERE status = 'esperando'
+            ORDER BY
+                CASE
+                    WHEN tipo = 'prioritario' THEN 1
+                    ELSE 2
+                END,
+                id ASC
+            LIMIT 1
+        `;
+      } else {
+        sqlBusca = `
+            SELECT *
+            FROM senha
+            WHERE status = 'esperando'
+            ORDER BY
+                CASE
+                    WHEN tipo = 'normal' THEN 1
+                    ELSE 2
+                END,
+                id ASC
+            LIMIT 1
+        `;
+      }
+
+      db.query(sqlBusca, (err, result) => {
+        if (err) return reject(err);
+
+        if (result.rows.length === 0) {
+          return resolve({
+            mensagem: "Nenhuma senha na fila"
+          });
+        }
+
+        const senha = result.rows[0];
+
+        const sqlUpdate = `
             UPDATE senha
-            SET status = 'atendido'
-            WHERE status = 'chamando'
+            SET status = 'chamando'
+            WHERE id = $1
+            RETURNING *
         `;
 
-        db.query(finalizarAnterior, (err) => {
-            if (err) return reject(err);
+        db.query(sqlUpdate, [senha.id], (err, updateResult) => {
+          if (err) return reject(err);
 
-            let sqlBusca = "";
+          if (senha.tipo === "prioritario") {
+            contadorPrioritarias++;
+          } else {
+            contadorPrioritarias = 0;
+          }
 
-            // até 3 prioritárias seguidas
-            if (contadorPrioritarias < 3) {
-
-                sqlBusca = `
-                    SELECT *
-                    FROM senha
-                    WHERE status = 'esperando'
-                    ORDER BY
-                        CASE
-                            WHEN tipo = 'prioritario' THEN 1
-                            ELSE 2
-                        END,
-                        id ASC
-                    LIMIT 1
-                `;
-
-            } else {
-
-                // força chamar normal
-                sqlBusca = `
-                    SELECT *
-                    FROM senha
-                    WHERE status = 'esperando'
-                    ORDER BY
-                        CASE
-                            WHEN tipo = 'normal' THEN 1
-                            ELSE 2
-                        END,
-                        id ASC
-                    LIMIT 1
-                `;
-            }
-
-            db.query(sqlBusca, (err, result) => {
-                if (err) return reject(err);
-
-                if (result.length === 0) {
-                    return resolve({
-                        mensagem: "Nenhuma senha na fila"
-                    });
-                }
-
-                const senha = result[0];
-
-                const sqlUpdate = `
-                    UPDATE senha
-                    SET status = 'chamando'
-                    WHERE id = ?
-                `;
-
-                db.query(sqlUpdate, [senha.id], (err) => {
-                    if (err) return reject(err);
-
-                    senha.status = "chamando";
-
-                    if (senha.tipo === "prioritario") {
-                        contadorPrioritarias++;
-                    } else {
-                        contadorPrioritarias = 0;
-                    }
-
-                    resolve(senha);
-                });
-            });
+          resolve(updateResult.rows[0]);
         });
+      });
     });
+  });
 };
 
 /* ===================================================
    FINALIZAR MANUALMENTE
-=================================================== */
+   =================================================== */
 exports.finalizarSenha = (id) => {
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
 
-        const sql = `
-            UPDATE senha
-            SET status = 'atendido'
-            WHERE id = ?
-        `;
+    const sql = `
+        UPDATE senha
+        SET status = 'atendido'
+        WHERE id = $1
+        RETURNING *
+    `;
 
-        db.query(sql, [id], (err, result) => {
-            if (err) return reject(err);
+    db.query(sql, [id], (err, result) => {
+      if (err) return reject(err);
 
-            resolve({
-                mensagem: "Senha finalizada"
-            });
-        });
+      resolve({
+        mensagem: "Senha finalizada"
+      });
     });
+  });
 };
 
 /* ===================================================
    CANCELAR SENHA
-=================================================== */
+   =================================================== */
 exports.cancelarSenha = (id) => {
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
 
-        const sql = `
-            UPDATE senha
-            SET status = 'cancelado'
-            WHERE id = ?
-        `;
+    const sql = `
+        UPDATE senha
+        SET status = 'cancelado'
+        WHERE id = $1
+        RETURNING *
+    `;
 
-        db.query(sql, [id], (err, result) => {
-            if (err) return reject(err);
+    db.query(sql, [id], (err, result) => {
+      if (err) return reject(err);
 
-            resolve({
-                mensagem: "Senha cancelada"
-            });
-        });
+      resolve({
+        mensagem: "Senha cancelada"
+      });
     });
-};
-
-exports.buscarMinhaSenha = (email) => {
-    return new Promise((resolve, reject) => {
-
-        const sql = `
-            SELECT *
-            FROM senha
-            WHERE email_usuario = ?
-            AND status IN ('esperando', 'chamando')
-            ORDER BY id ASC
-            LIMIT 1
-        `;
-
-        db.query(sql, [email], (err, result) => {
-
-            if (err) return reject(err);
-
-            if (result.length === 0) {
-                return resolve({
-                    mensagem: "Você não possui senha ativa"
-                });
-            }
-
-            const minhaSenha = result[0];
-
-            const sqlFila = `
-                SELECT COUNT(*) AS total
-                FROM senha
-                WHERE status = 'esperando'
-                AND id < ?
-            `;
-
-            db.query(sqlFila, [minhaSenha.id], (err, fila) => {
-
-                if (err) return reject(err);
-
-                resolve({
-                    numero: minhaSenha.numero,
-                    tipo: minhaSenha.tipo,
-                    status: minhaSenha.status,
-                    pessoasNaFrente: fila[0].total
-                });
-            });
-        });
-    });
-};
-
-exports.cancelarMinhaSenha = (email) => {
-    return new Promise((resolve, reject) => {
-
-        // buscar senha ativa do cliente
-        const sqlBusca = `
-            SELECT *
-            FROM senha
-            WHERE email_usuario = ?
-            AND status IN ('esperando', 'chamando')
-            ORDER BY id ASC
-            LIMIT 1
-        `;
-
-        db.query(sqlBusca, [email], (err, result) => {
-
-            if (err) return reject(err);
-
-            if (result.length === 0) {
-                return resolve({
-                    mensagem:
-                    "Nenhuma senha ativa encontrada"
-                });
-            }
-
-            const senha = result[0];
-
-            // se já estiver chamando
-            if (senha.status === "chamando") {
-                return resolve({
-                    mensagem:
-                    "Sua senha já está em atendimento e não pode ser cancelada."
-                });
-            }
-
-            // cancelar somente se esperando
-            const sqlUpdate = `
-                UPDATE senha
-                SET status = 'cancelado'
-                WHERE id = ?
-            `;
-
-            db.query(sqlUpdate, [senha.id], (err) => {
-
-                if (err) return reject(err);
-
-                resolve({
-                    mensagem:
-                    "Senha cancelada com sucesso"
-                });
-            });
-        });
-    });
+  });
 };
 
 /* ===================================================
-   MINHA SENHA + POSIÇÃO + TEMPO ESTIMADO (REGRA 3x1)
-=================================================== */
-exports.buscarMinhaSenha = (email) => {
-    return new Promise((resolve, reject) => {
+   BUSCAR MINHA SENHA POR DEVICE ID
+   =================================================== */
+exports.buscarMinhaSenha = (deviceId) => {
+  return new Promise((resolve, reject) => {
 
-        const sqlMinha = `
-            SELECT *
-            FROM senha
-            WHERE email_usuario = ?
-            AND status IN ('esperando', 'chamando')
-            ORDER BY id ASC
-            LIMIT 1
-        `;
+    const sql = `
+        SELECT *
+        FROM senha
+        WHERE dispositivo_id = $1
+        AND status IN ('esperando', 'chamando')
+        ORDER BY id ASC
+        LIMIT 1
+    `;
 
-        db.query(sqlMinha, [email], (err, result) => {
-            if (err) return reject(err);
+    db.query(sql, [deviceId], (err, result) => {
 
-            if (result.length === 0) {
-                return resolve({
-                    mensagem: "Você não possui senha ativa."
-                });
-            }
+      if (err) return reject(err);
 
-            const minhaSenha = result[0];
-
-            // se já estiver sendo chamada
-            if (minhaSenha.status === "chamando") {
-                return resolve({
-                    numero: minhaSenha.numero,
-                    tipo: minhaSenha.tipo,
-                    status: minhaSenha.status,
-                    pessoasNaFrente: 0,
-                    tempoEstimadoMinutos: 0
-                });
-            }
-
-            /* ==========================================
-               BUSCAR FILA REAL
-            ========================================== */
-            const sqlFila = `
-                SELECT id, numero, tipo
-                FROM senha
-                WHERE status = 'esperando'
-                ORDER BY id ASC
-            `;
-
-            db.query(sqlFila, (err, fila) => {
-                if (err) return reject(err);
-
-                let ordem = [];
-                let prioridadesSeguidas = 0;
-
-                let pendentes = [...fila];
-
-                while (pendentes.length > 0) {
-
-                    let indice = -1;
-
-                    // até 3 prioritárias seguidas
-                    if (prioridadesSeguidas < 3) {
-                        indice = pendentes.findIndex(
-                            s => s.tipo === "prioritario"
-                        );
-                    }
-
-                    // se não encontrou prioritária, chama normal
-                    if (indice === -1) {
-                        indice = pendentes.findIndex(
-                            s => s.tipo === "normal"
-                        );
-                        prioridadesSeguidas = 0;
-                    }
-
-                    // fallback
-                    if (indice === -1) {
-                        indice = 0;
-                    }
-
-                    const chamada =
-                        pendentes.splice(indice, 1)[0];
-
-                    if (chamada.tipo === "prioritario") {
-                        prioridadesSeguidas++;
-                    } else {
-                        prioridadesSeguidas = 0;
-                    }
-
-                    ordem.push(chamada);
-                }
-
-                const posicao = ordem.findIndex(
-                    s => s.id === minhaSenha.id
-                );
-
-                const pessoasNaFrente = posicao;
-
-                const tempoMedio = 5; // minutos
-                const estimativa =
-                    pessoasNaFrente * tempoMedio;
-
-                resolve({
-                    numero: minhaSenha.numero,
-                    tipo: minhaSenha.tipo,
-                    status: minhaSenha.status,
-                    pessoasNaFrente,
-                    tempoEstimadoMinutos: estimativa
-                });
-            });
+      if (result.rows.length === 0) {
+        return resolve({
+          mensagem: "Nenhuma senha ativa encontrada"
         });
+      }
+
+      const minhaSenha = result.rows[0];
+
+      // Calcular tempo estimado considerando a regra 3x1
+      calcularTempoEstimado(minhaSenha.id, minhaSenha.tipo)
+        .then(({ tempoEstimadoMinutos, pessoasNaFrente }) => {
+          resolve({
+            numero: minhaSenha.numero,
+            tipo: minhaSenha.tipo,
+            status: minhaSenha.status,
+            codigo_verificacao: minhaSenha.codigo_verificacao,
+            pessoasNaFrente,
+            tempoEstimadoMinutos
+          });
+        })
+        .catch(err => reject(err));
     });
+  });
+};
+
+/* ===================================================
+   CANCELAR MINHA SENHA POR DEVICE ID
+   =================================================== */
+exports.cancelarMinhaSenha = (deviceId) => {
+  return new Promise((resolve, reject) => {
+
+    const sqlBusca = `
+        SELECT *
+        FROM senha
+        WHERE dispositivo_id = $1
+        AND status IN ('esperando', 'chamando')
+        ORDER BY id ASC
+        LIMIT 1
+    `;
+
+    db.query(sqlBusca, [deviceId], (err, result) => {
+
+      if (err) return reject(err);
+
+      if (result.rows.length === 0) {
+        return resolve({
+          mensagem: "Nenhuma senha ativa encontrada"
+        });
+      }
+
+      const senha = result.rows[0];
+
+      if (senha.status === "chamando") {
+        return resolve({
+          mensagem: "Sua senha já está em atendimento e não pode ser cancelada."
+        });
+      }
+
+      const sqlUpdate = `
+          UPDATE senha
+          SET status = 'cancelado'
+          WHERE id = $1
+          RETURNING *
+      `;
+
+      db.query(sqlUpdate, [senha.id], (err, updateResult) => {
+
+        if (err) return reject(err);
+
+        resolve({
+          mensagem: "Senha cancelada com sucesso"
+        });
+      });
+    });
+  });
+};
+
+/* ===================================================
+   BUSCAR HISTÓRICO DE SENHAS POR DEVICE ID
+   =================================================== */
+exports.buscarHistoricoSenhas = (deviceId) => {
+  return new Promise((resolve, reject) => {
+
+    const sql = `
+        SELECT *
+        FROM senha
+        WHERE dispositivo_id = $1
+        ORDER BY id DESC
+    `;
+
+    db.query(sql, [deviceId], (err, result) => {
+
+      if (err) return reject(err);
+
+      resolve(result.rows);
+    });
+  });
 };

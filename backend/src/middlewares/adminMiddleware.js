@@ -23,7 +23,8 @@ module.exports = (req, res, next) => {
             process.env.JWT_SECRET
         );
 
-        if (decoded.perfil !== "admin") {
+        // Aceita tanto "admin" (legacy) quanto "administrador" (novo)
+        if (decoded.perfil !== "admin" && decoded.perfil !== "administrador") {
             return res.status(403).json({
                 mensagem: "Acesso negado"
             });
