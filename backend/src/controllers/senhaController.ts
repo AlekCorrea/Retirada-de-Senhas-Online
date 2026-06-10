@@ -12,6 +12,11 @@ const montarStats = (senhas) => ({
   total: senhas.length
 });
 
+const montarStatsComMetricas = async (senhas) => ({
+  ...montarStats(senhas),
+  ...(await model.obterMetricasAtendimento())
+});
+
 const emitQueueEvent = async (event, senha, extra: Record<string, any> = {}) => {
   try {
     const io = getIO();
@@ -42,7 +47,7 @@ const emitQueueEvent = async (event, senha, extra: Record<string, any> = {}) => 
     }
 
     const senhas = await model.listarSenhas();
-    io.emit("queue-stats-updated", montarStats(senhas));
+    io.emit("queue-stats-updated", await montarStatsComMetricas(senhas));
   } catch (err) {
     console.error("Erro ao emitir evento Socket.IO:", err.message);
   }
@@ -246,7 +251,7 @@ exports.obterFila = async (req, res) => {
   try {
     const senhas = await model.listarSenhas();
 
-    const stats = montarStats(senhas);
+    const stats = await montarStatsComMetricas(senhas);
 
     res.json({
       senhas: senhas,
@@ -264,7 +269,7 @@ exports.obterFila = async (req, res) => {
 exports.obterPainelPublico = async (req, res) => {
   try {
     const senhas = await model.listarSenhas();
-    const stats = montarStats(senhas);
+    const stats = await montarStatsComMetricas(senhas);
     const chamadaAtual = [...senhas].reverse().find(s => s.status === "chamando") || null;
     const ultimasChamadas = senhas
       .filter(s => s.status === "chamando" || s.status === "atendido")
@@ -331,7 +336,7 @@ exports.statusFilaPublica = async (req, res) => {
   try {
     const senhas = await model.listarSenhas();
 
-    const stats = montarStats(senhas);
+    const stats = await montarStatsComMetricas(senhas);
 
     res.json(stats);
 

@@ -28,14 +28,14 @@
             <input v-model="tipo" type="radio" value="prioritario" />
             <span class="tipo-titulo">Preferencial</span>
             <span class="tipo-desc">Idosos, gestantes, PCD</span>
-            <div class="tipo-btn">Sua senha aqui.</div>
+            <span class="tipo-icone" aria-hidden="true">♿</span>
           </label>
 
           <label class="opcao-tipo normal-card" :class="{ selecionado: tipo === 'normal' }">
             <input v-model="tipo" type="radio" value="normal" />
             <span class="tipo-titulo">Normal</span>
             <span class="tipo-desc">Fila padrão</span>
-            <div class="tipo-btn">Sua senha aqui.</div>
+            <span class="tipo-icone" aria-hidden="true">👤</span>
           </label>
         </div>
 
@@ -371,9 +371,12 @@ const loginComGoogle = async () => {
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
   position: relative;
+  min-height: 210px;
+  text-align: center;
 }
 
 .opcao-tipo input { position: absolute; opacity: 0; pointer-events: none; }
@@ -389,19 +392,23 @@ const loginComGoogle = async () => {
 .opcao-tipo:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
 .opcao-tipo.selecionado { box-shadow: 0 0 0 3px #fff, 0 8px 24px rgba(0,0,0,0.25); }
 
-.tipo-titulo { font-size: 1.8rem; font-weight: 400; color: #fff; font-family: 'Inter', sans-serif; }
-.tipo-desc { font-size: 0.85rem; color: rgba(255,255,255,0.8); }
+.tipo-titulo { font-size: 1.8rem; font-weight: 600; color: #fff; font-family: 'Inter', sans-serif; }
+.tipo-desc { font-size: 0.95rem; color: #F0F3FC; font-weight: 500; }
 
-.tipo-btn {
+.tipo-icone {
   margin-top: auto;
-  background: #0F1A52;
-  color: #fff;
-  border-radius: 20px;
-  padding: 12px 0;
-  font-size: 1rem;
+  background: #F0F3FC;
+  color: #0F1A52;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  font-size: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  width: 100%;
-  font-family: 'Inter', sans-serif;
+  line-height: 1;
+  box-shadow: 0 6px 14px rgba(15, 26, 82, 0.22);
 }
 
 .btn-retirar {

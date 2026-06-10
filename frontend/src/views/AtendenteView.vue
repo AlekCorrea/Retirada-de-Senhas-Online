@@ -72,9 +72,6 @@
         <section class="card fila-card">
           <div class="fila-atendida-header">
             <h2 class="fila-titulo">Já atendidos</h2>
-            <div class="atendida-avatar">
-              <div class="atendida-avatar-circle"></div>
-            </div>
           </div>
           <div v-if="filaAtendidaInvertida.length === 0" class="fila-vazia">Nenhum ticket atendido</div>
           <div v-else class="fila-lista">
@@ -377,12 +374,6 @@ onUnmounted(() => { off('queue-updated', onQueueUpdated) })
 }
 
 .fila-atendida-header .fila-titulo { margin: 0; }
-
-.atendida-avatar-circle {
-  width: 64px; height: 64px;
-  border-radius: 50%;
-  background: #8F9AD2;
-}
 
 .fila-vazia { color: #555; padding: 20px 0; font-family: 'Inter', sans-serif; font-size: 1rem; }
 

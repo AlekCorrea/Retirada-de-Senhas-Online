@@ -11,30 +11,43 @@ function normalizarAtendenteId(atendenteId) {
   return atendenteId || null;
 }
 
-function registrarAtendimento(senha, atendenteId, observacoes) {
+function registrarInicioAtendimento(senha, atendenteId) {
   return new Promise((resolve, reject) => {
     if (!senha?.id) return resolve(null);
 
-    const fim = senha.atendido_em || senha.cancelado_em || senha.updated_at;
-    const inicioAtendimento =
-      senha.status_anterior === "chamando" ? senha.atendimento_inicio : null;
+    const inicioAtendimento = senha.updated_at || new Date();
 
     const sql = `
-        INSERT INTO atendimentos
-        (senha_id, atendente_id, tempo_espera_minutos, tempo_atendimento_minutos, observacoes)
-        SELECT
-          $1,
-          $2,
-          GREATEST(0, FLOOR(EXTRACT(EPOCH FROM ($3::timestamp - $4::timestamp)) / 60))::integer,
-          CASE
-            WHEN $5::timestamp IS NULL THEN NULL
-            ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM ($3::timestamp - $5::timestamp)) / 60))::integer
-          END,
-          $6
-        WHERE NOT EXISTS (
-          SELECT 1 FROM atendimentos WHERE senha_id = $1
+        WITH dados AS (
+          SELECT
+            $1::integer AS senha_id,
+            $2::integer AS atendente_id,
+            GREATEST(0, FLOOR(EXTRACT(EPOCH FROM ($3::timestamp - $4::timestamp)) / 60))::integer AS tempo_espera_minutos
+        ),
+        atualizado AS (
+          UPDATE atendimentos a
+          SET atendente_id = COALESCE(d.atendente_id, a.atendente_id),
+              tempo_espera_minutos = d.tempo_espera_minutos,
+              observacoes = COALESCE(a.observacoes, 'Atendimento iniciado'),
+              updated_at = CURRENT_TIMESTAMP
+          FROM dados d
+          WHERE a.senha_id = d.senha_id
+          RETURNING a.*
+        ),
+        inserido AS (
+          INSERT INTO atendimentos
+          (senha_id, atendente_id, tempo_espera_minutos, observacoes)
+          SELECT senha_id, atendente_id, tempo_espera_minutos, 'Atendimento iniciado'
+          FROM dados
+          WHERE NOT EXISTS (
+            SELECT 1 FROM atendimentos WHERE senha_id = dados.senha_id
+          )
+          RETURNING *
         )
-        RETURNING *
+        SELECT * FROM atualizado
+        UNION ALL
+        SELECT * FROM inserido
+        LIMIT 1
     `;
 
     db.query(
@@ -42,9 +55,74 @@ function registrarAtendimento(senha, atendenteId, observacoes) {
       [
         senha.id,
         normalizarAtendenteId(atendenteId),
-        fim,
+        inicioAtendimento,
+        senha.created_at
+      ],
+      (err, result) => {
+        if (err) return reject(err);
+        resolve(result.rows[0] || null);
+      }
+    );
+  });
+}
+
+function registrarConclusaoAtendimento(senha, atendenteId, observacoes) {
+  return new Promise((resolve, reject) => {
+    if (!senha?.id) return resolve(null);
+
+    const fim = senha.atendido_em || senha.cancelado_em || senha.updated_at || new Date();
+    const inicioAtendimento =
+      senha.status_anterior === "chamando" ? senha.atendimento_inicio : null;
+    const fimEspera = inicioAtendimento || fim;
+
+    const sql = `
+        WITH dados AS (
+          SELECT
+            $1::integer AS senha_id,
+            $2::integer AS atendente_id,
+            GREATEST(0, FLOOR(EXTRACT(EPOCH FROM ($3::timestamp - $4::timestamp)) / 60))::integer AS tempo_espera_minutos,
+            CASE
+              WHEN $5::timestamp IS NULL THEN NULL
+              ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM ($6::timestamp - $5::timestamp)) / 60))::integer
+            END AS tempo_atendimento_minutos,
+            $7::text AS observacoes
+        ),
+        atualizado AS (
+          UPDATE atendimentos a
+          SET atendente_id = COALESCE(d.atendente_id, a.atendente_id),
+              tempo_espera_minutos = d.tempo_espera_minutos,
+              tempo_atendimento_minutos = d.tempo_atendimento_minutos,
+              observacoes = d.observacoes,
+              updated_at = CURRENT_TIMESTAMP
+          FROM dados d
+          WHERE a.senha_id = d.senha_id
+          RETURNING a.*
+        ),
+        inserido AS (
+          INSERT INTO atendimentos
+          (senha_id, atendente_id, tempo_espera_minutos, tempo_atendimento_minutos, observacoes)
+          SELECT senha_id, atendente_id, tempo_espera_minutos, tempo_atendimento_minutos, observacoes
+          FROM dados
+          WHERE NOT EXISTS (
+            SELECT 1 FROM atendimentos WHERE senha_id = dados.senha_id
+          )
+          RETURNING *
+        )
+        SELECT * FROM atualizado
+        UNION ALL
+        SELECT * FROM inserido
+        LIMIT 1
+    `;
+
+    db.query(
+      sql,
+      [
+        senha.id,
+        normalizarAtendenteId(atendenteId),
+        fimEspera,
         senha.created_at,
         inicioAtendimento,
+        fim,
         observacoes
       ],
       (err, result) => {
@@ -252,6 +330,31 @@ exports.listarSenhas = () => {
 };
 
 /* ===================================================
+   METRICAS DE ATENDIMENTO
+   =================================================== */
+exports.obterMetricasAtendimento = () => {
+  return new Promise((resolve, reject) => {
+    const sql = `
+        SELECT
+          COUNT(*)::integer AS total_atendimentos_metricas,
+          COALESCE(ROUND(AVG(tempo_espera_minutos) FILTER (WHERE tempo_espera_minutos IS NOT NULL), 2), 0)::float AS tempo_medio_espera_minutos,
+          COALESCE(MAX(tempo_espera_minutos), 0)::integer AS tempo_maximo_espera_minutos,
+          COALESCE(MIN(tempo_espera_minutos), 0)::integer AS tempo_minimo_espera_minutos,
+          COALESCE(ROUND(AVG(tempo_atendimento_minutos) FILTER (WHERE tempo_atendimento_minutos IS NOT NULL), 2), 0)::float AS tempo_medio_atendimento_minutos,
+          COALESCE(MAX(tempo_atendimento_minutos), 0)::integer AS tempo_maximo_atendimento_minutos,
+          COALESCE(MIN(tempo_atendimento_minutos), 0)::integer AS tempo_minimo_atendimento_minutos
+        FROM atendimentos
+        WHERE created_at >= NOW() - INTERVAL '1 day'
+    `;
+
+    db.query(sql, (err, result) => {
+      if (err) return reject(err);
+      resolve(result.rows[0]);
+    });
+  });
+};
+
+/* ===================================================
    CHAMAR PRÓXIMA (REGRA 3x1)
    3 prioritárias e 1 normal
    =================================================== */
@@ -317,7 +420,7 @@ exports.chamarProxima = (atendenteId, guiche) => {
           try {
             await Promise.all(
               finalizadasResult.rows.map((finalizada) =>
-                registrarAtendimento(finalizada, atendenteId, "Atendimento finalizado automaticamente ao chamar proxima senha")
+                registrarConclusaoAtendimento(finalizada, atendenteId, "Atendimento finalizado automaticamente ao chamar proxima senha")
               )
             );
           } catch (err) {
@@ -353,9 +456,10 @@ exports.chamarProxima = (atendenteId, guiche) => {
           }
 
           try {
+            await registrarInicioAtendimento(updateResult.rows[0], atendenteId);
             await Promise.all(
               finalizadasResult.rows.map((finalizada) =>
-                registrarAtendimento(finalizada, atendenteId, "Atendimento finalizado automaticamente ao chamar proxima senha")
+                registrarConclusaoAtendimento(finalizada, atendenteId, "Atendimento finalizado automaticamente ao chamar proxima senha")
               )
             );
           } catch (err) {
@@ -404,7 +508,7 @@ exports.finalizarSenha = (id, atendenteId) => {
       if (!senha) return resolve(null);
 
       try {
-        await registrarAtendimento(senha, atendenteId, "Atendimento finalizado");
+        await registrarConclusaoAtendimento(senha, atendenteId, "Atendimento finalizado");
         resolve(senha);
       } catch (err) {
         reject(err);
@@ -445,7 +549,7 @@ exports.cancelarSenha = (id, atendenteId) => {
       if (!senha) return resolve(null);
 
       try {
-        await registrarAtendimento(senha, atendenteId, "Senha cancelada pelo atendimento");
+        await registrarConclusaoAtendimento(senha, atendenteId, "Senha cancelada pelo atendimento");
         resolve(senha);
       } catch (err) {
         reject(err);
@@ -552,7 +656,7 @@ exports.cancelarMinhaSenha = (deviceId) => {
         if (!senhaCancelada) return resolve(null);
 
         try {
-          await registrarAtendimento(senhaCancelada, null, "Senha cancelada pelo cliente");
+          await registrarConclusaoAtendimento(senhaCancelada, null, "Senha cancelada pelo cliente");
           resolve(senhaCancelada);
         } catch (err) {
           reject(err);
