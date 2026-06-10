@@ -3,7 +3,12 @@
     <!-- Header -->
     <header class="topbar">
       <div class="topbar-left">
-        <div class="avatar-circle"></div>
+        <div class="avatar-circle" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="avatar-icon">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4Z" />
+            <path d="M4.5 20c.88-3.45 3.78-5.5 7.5-5.5s6.62 2.05 7.5 5.5" />
+          </svg>
+        </div>
         <div class="topbar-info">
           <span class="topbar-title">Bem vindo Atendente</span>
           <span class="topbar-sub">{{ authStore.guiche || 'Guiche nao selecionado' }} - Chame a primeira senha</span>
@@ -18,14 +23,18 @@
         <div v-if="senhaAtual" class="senha-atual">
           <div class="senha-atual-info">
             <div class="sa-label">Senha em atendimento</div>
-            <div class="sa-numero">{{ senhaAtual.numero }}</div>
-            <div class="sa-codigo">
-              <span class="sa-codigo-label">Código da senha:</span>
-              <span class="sa-codigo-valor">{{ senhaAtual.codigo_verificacao }}</span>
+            <div class="sa-tipo-indicador" :class="senhaAtual.tipo">
+              {{ senhaAtual.tipo === 'prioritario' ? 'P' : 'N' }}
             </div>
-            <div class="sa-guiche">{{ senhaAtual.guiche || authStore.guiche }}</div>
-            <div class="sa-tipo-badge" :class="senhaAtual.tipo">
-              {{ senhaAtual.tipo === 'prioritario' ? '⭐ Prioritária' : '📋 Normal' }}
+            <div class="sa-dados">
+              <div class="sa-dado">
+                <span class="sa-dado-label">Senha</span>
+                <span class="sa-dado-valor">{{ senhaAtual.numero }}</span>
+              </div>
+              <div class="sa-dado">
+                <span class="sa-dado-label">Código de verificação</span>
+                <span class="sa-dado-valor">{{ senhaAtual.codigo_verificacao }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -53,37 +62,47 @@
         <!-- Fila para chamar -->
         <section class="card fila-card">
           <h2 class="fila-titulo">Para chamar</h2>
-          <div v-if="filaChamadaInvertida.length === 0" class="fila-vazia">Nenhuma senha na fila</div>
+          <div v-if="filaPendenteOrdenada.length === 0" class="fila-vazia">Nenhuma senha pendente</div>
           <div v-else class="fila-lista">
-            <div v-for="(senha, i) in filaChamadaInvertida" :key="senha.id" class="fila-item" :class="{ 'item-chamando': senha.status === 'chamando' }">
+            <div v-for="senha in filaPendenteOrdenada" :key="senha.id" class="fila-item" :class="{ 'item-chamando': senha.status === 'chamando' }">
               <div class="item-avatar">
-                <div class="item-avatar-circle"></div>
+                <div class="item-avatar-circle" :class="senha.tipo">
+                  {{ senha.tipo === 'prioritario' ? 'P' : 'N' }}
+                </div>
               </div>
               <div class="item-info">
                 <div class="item-tipo">{{ senha.tipo === 'prioritario' ? 'Preferencial' : 'Normal' }}</div>
                 <div class="item-numero">Senha: {{ senha.numero }}</div>
               </div>
-              <div class="item-data">| {{ formatarData(senha.criado_em || senha.created_at) }}</div>
+              <div class="item-extra">
+                <span class="item-status" :class="'status-' + senha.status">{{ getStatusLabel(senha.status) }}</span>
+                <span class="item-data">{{ formatarData(senha.criado_em || senha.created_at) }}</span>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- Já atendidos -->
+        <!-- Atendidas ou canceladas -->
         <section class="card fila-card">
           <div class="fila-atendida-header">
-            <h2 class="fila-titulo">Já atendidos</h2>
+            <h2 class="fila-titulo">Atendidas ou canceladas</h2>
           </div>
-          <div v-if="filaAtendidaInvertida.length === 0" class="fila-vazia">Nenhum ticket atendido</div>
+          <div v-if="filaFinalizadaInvertida.length === 0" class="fila-vazia">Nenhuma senha finalizada</div>
           <div v-else class="fila-lista">
-            <div v-for="(senha, i) in filaAtendidaInvertida" :key="senha.id" class="fila-item item-atendido">
+            <div v-for="senha in filaFinalizadaInvertida" :key="senha.id" class="fila-item" :class="{ 'item-cancelado': senha.status === 'cancelado' }">
               <div class="item-avatar">
-                <div class="item-avatar-circle atendido-circle"></div>
+                <div class="item-avatar-circle" :class="senha.tipo">
+                  {{ senha.tipo === 'prioritario' ? 'P' : 'N' }}
+                </div>
               </div>
               <div class="item-info">
                 <div class="item-tipo">{{ senha.tipo === 'prioritario' ? 'Preferencial' : 'Normal' }}</div>
                 <div class="item-numero">Senha: {{ senha.numero }}</div>
               </div>
-              <div class="item-data">| {{ formatarData(senha.atualizado_em || senha.updated_at) }}</div>
+              <div class="item-extra">
+                <span class="item-status" :class="'status-' + senha.status">{{ getStatusLabel(senha.status) }}</span>
+                <span class="item-data">{{ formatarData(senha.atualizado_em || senha.updated_at) }}</span>
+              </div>
             </div>
           </div>
         </section>
@@ -104,7 +123,7 @@ import axios from 'axios'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const { connect, joinAdmin, on, off } = useSocket()
+const { connect, joinAdmin, registerAttendant, unregisterAttendant, on, off } = useSocket()
 const loading = ref(false)
 const mensagem = ref('')
 const tipoMensagem = ref('success')
@@ -113,12 +132,45 @@ const fila = ref([])
 const filaStats = ref({ esperando: 0, chamando: 0, normais: 0, prioritarias: 0, atendido: 0, total: 0 })
 let intervalo = null
 
-const filaChamada = computed(() => fila.value.filter(s => s.status === 'esperando' || s.status === 'chamando'))
-const filaAtendida = computed(() => fila.value.filter(s => s.status === 'atendido'))
-const filaChamadaInvertida = computed(() => [...filaChamada.value].reverse().slice(0, 5))
-const filaAtendidaInvertida = computed(() => [...filaAtendida.value].reverse().slice(0, 5))
+const ordenarPorChamada = (senhasFila) => {
+  const chamando = senhasFila.filter(s => s.status === 'chamando')
+  const restantes = senhasFila.filter(s => s.status !== 'chamando')
+  const ordem = []
+  let contadorPrioritarias = 0
 
-const getStatusLabel = (status) => ({ esperando: '⏳ Esperando', chamando: '📢 Chamando', atendido: '✅ Atendido', cancelado: '❌ Cancelado' }[status] || status)
+  while (restantes.length > 0) {
+    let indice = -1
+
+    if (contadorPrioritarias < 3) {
+      indice = restantes.findIndex(s => s.tipo === 'prioritario')
+      if (indice === -1) {
+        indice = 0
+        contadorPrioritarias = 0
+      } else {
+        contadorPrioritarias++
+      }
+    } else {
+      indice = restantes.findIndex(s => s.tipo === 'normal')
+      if (indice === -1) {
+        indice = 0
+        contadorPrioritarias++
+      } else {
+        contadorPrioritarias = 0
+      }
+    }
+
+    ordem.push(restantes.splice(indice, 1)[0])
+  }
+
+  return [...chamando, ...ordem]
+}
+
+const filaPendente = computed(() => fila.value.filter(s => s.status === 'esperando' || s.status === 'chamando'))
+const filaPendenteOrdenada = computed(() => ordenarPorChamada([...filaPendente.value]))
+const filaFinalizada = computed(() => fila.value.filter(s => s.status === 'atendido' || s.status === 'cancelado'))
+const filaFinalizadaInvertida = computed(() => [...filaFinalizada.value].reverse())
+
+const getStatusLabel = (status) => ({ esperando: 'Esperando', chamando: 'Chamando', atendido: 'Atendida', cancelado: 'Cancelado' }[status] || status)
 
 const formatarData = (d) => {
   if (!d) return ''
@@ -185,10 +237,14 @@ onMounted(() => {
   carregarFila()
   connect()
   joinAdmin()
+  registerAttendant(authStore.user)
   on('queue-updated', onQueueUpdated)
 })
 
-onUnmounted(() => { off('queue-updated', onQueueUpdated) })
+onUnmounted(() => {
+  unregisterAttendant()
+  off('queue-updated', onQueueUpdated)
+})
 </script>
 
 <style scoped>
@@ -220,6 +276,19 @@ onUnmounted(() => { off('queue-updated', onQueueUpdated) })
   border-radius: 50%;
   background: #8F9AD2;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-icon {
+  width: 44px;
+  height: 44px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .topbar-info { display: flex; flex-direction: column; gap: 2px; }
@@ -258,62 +327,70 @@ onUnmounted(() => { off('queue-updated', onQueueUpdated) })
 /* Senha atual */
 .senha-atual-card { text-align: center; }
 
+.senha-atual-info {
+  position: relative;
+}
+
 .sa-label {
   font-family: 'Inter', sans-serif;
   font-size: 1.8rem;
   font-weight: 400;
   color: #000;
   margin-bottom: 8px;
+  padding: 0 72px;
 }
 
-.sa-numero {
-  font-family: 'Inter', sans-serif;
-  font-size: 10rem;
-  font-weight: 400;
-  color: #000;
-  line-height: 1;
-  margin: 8px 0;
-}
-
-.sa-codigo {
+.sa-tipo-indicador {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
 }
 
-.sa-codigo-label { font-size: 1rem; color: #000; font-family: 'Inter', sans-serif; }
+.sa-tipo-indicador.prioritario { background: #ef4444; }
 
-.sa-codigo-valor {
+.sa-dados {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.sa-dado {
   background: #CCD4FF;
   border-radius: 25px;
-  padding: 10px 28px;
-  font-size: 1.5rem;
+  min-height: 170px;
+  padding: 22px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.sa-dado-label {
+  font-size: 1.05rem;
   font-family: 'Inter', sans-serif;
   color: #000;
+  font-weight: 500;
 }
 
-.sa-tipo-badge {
-  display: inline-block;
-  padding: 8px 24px;
-  border-radius: 20px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  background: #CCD4FF;
-  color: #0F1A52;
-}
-
-.sa-guiche {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 10px 28px;
-  border-radius: 20px;
-  background: #0F1A52;
-  color: #fff;
-  font-size: 1.15rem;
+.sa-dado-valor {
+  font-size: 4.8rem;
+  line-height: 1;
   font-weight: 700;
   font-family: 'Inter', sans-serif;
+  color: #000;
 }
 
 .sem-senha-atual {
@@ -390,18 +467,26 @@ onUnmounted(() => { off('queue-updated', onQueueUpdated) })
 
 .fila-item:last-child { border-bottom: none; }
 .fila-item:hover { background: rgba(255,255,255,0.5); border-radius: 8px; }
-.item-chamando { background: rgba(233,58,50,0.05); }
+.item-chamando { background: rgba(59,130,246,0.08); }
+.item-cancelado { background: rgba(239,68,68,0.05); }
 
 .item-avatar-circle {
   width: 56px; height: 56px;
   border-radius: 50%;
-  background: #8F9AD2;
+  background: #3b82f6;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
-.atendido-circle { background: #6bbf4a; }
+.item-avatar-circle.prioritario { background: #ef4444; }
 
-.item-info { flex: 1; }
+.item-info { flex: 1; min-width: 0; }
 .item-tipo { font-size: 1rem; font-weight: 400; color: #000; font-family: 'Inter', sans-serif; }
 
 .item-numero {
@@ -415,11 +500,33 @@ onUnmounted(() => { off('queue-updated', onQueueUpdated) })
   margin-top: 4px;
 }
 
+.item-extra {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.item-status {
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  background: rgba(0,0,0,0.08);
+  color: #555;
+}
+
+.item-status.status-esperando { background: #fef3c7; color: #92400e; }
+.item-status.status-chamando { background: #dbeafe; color: #1d4ed8; }
+.item-status.status-atendido { background: #D8FFDE; color: #065f46; }
+.item-status.status-cancelado { background: #fee2e2; color: #991b1b; }
+
 .item-data {
   font-size: 0.85rem;
   color: rgba(0,0,0,0.5);
   font-family: 'Inter', sans-serif;
-  white-space: nowrap;
 }
 
 /* Toast */
@@ -455,7 +562,13 @@ onUnmounted(() => { off('queue-updated', onQueueUpdated) })
 @media (max-width: 900px) {
   .filas-grid { grid-template-columns: 1fr; }
   .acoes-grid { grid-template-columns: 1fr; }
-  .sa-numero { font-size: 6rem; }
+  .sa-dados { grid-template-columns: 1fr; }
+  .sa-dado-valor { font-size: 3.8rem; }
+  .sa-tipo-indicador {
+    width: 52px;
+    height: 52px;
+    font-size: 1.15rem;
+  }
 }
 
 @media (max-width: 600px) {
@@ -463,5 +576,9 @@ onUnmounted(() => { off('queue-updated', onQueueUpdated) })
   .topbar { margin: 16px 16px 0; padding: 16px; }
   .topbar-title { font-size: 1.2rem; }
   .avatar-circle { width: 56px; height: 56px; }
+  .sa-label {
+    font-size: 1.35rem;
+    padding: 0 58px;
+  }
 }
 </style>

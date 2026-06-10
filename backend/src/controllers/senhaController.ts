@@ -17,6 +17,14 @@ const montarStatsComMetricas = async (senhas) => ({
   ...(await model.obterMetricasAtendimento())
 });
 
+const statusErroCriacaoSenha = (mensagem) => (
+  [
+    "Nao ha entrega de senhas no dia de hoje.",
+    "A entrega de senhas ainda nao comecou hoje.",
+    "Nao ha mais disponibilidade de atendimento para hoje."
+  ].includes(mensagem) ? 403 : 500
+);
+
 const emitQueueEvent = async (event, senha, extra: Record<string, any> = {}) => {
   try {
     const io = getIO();
@@ -92,7 +100,7 @@ exports.criarPublica = async (req, res) => {
 
   } catch (err) {
     console.error("Erro ao criar senha pública:", err);
-    return res.status(500).json({
+    return res.status(statusErroCriacaoSenha(err.message)).json({
       erro: err.message || "Erro ao retirar senha"
     });
   }
@@ -111,7 +119,7 @@ exports.criar = async (req, res) => {
     return res.status(201).json(senha);
 
   } catch (err) {
-    return res.status(500).json({
+    return res.status(statusErroCriacaoSenha(err.message)).json({
       erro: err.message
     });
   }
@@ -123,6 +131,53 @@ exports.listar = async (req, res) => {
     res.json(senhas);
   } catch (err) {
     res.status(500).json(err);
+  }
+};
+
+exports.obterConfigAtendimento = async (req, res) => {
+  try {
+    const config = await model.obterConfigAtendimento();
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({
+      erro: err.message
+    });
+  }
+};
+
+exports.salvarConfigAtendimento = async (req, res) => {
+  try {
+    const {
+      diasAtendimento,
+      horaInicioEntrega,
+      horaInicioAtendimento,
+      horaFimAtendimento,
+      tempoMedioAtendimentoMinutos
+    } = req.body || {};
+
+    if (!Array.isArray(diasAtendimento)) {
+      return res.status(400).json({
+        erro: "diasAtendimento deve ser uma lista de dias da semana"
+      });
+    }
+
+    const config = await model.salvarConfigAtendimento({
+      diasAtendimento,
+      horaInicioEntrega,
+      horaInicioAtendimento,
+      horaFimAtendimento,
+      tempoMedioAtendimentoMinutos
+    });
+    try {
+      getIO().emit("attendance-config-updated", config);
+    } catch (err) {
+      console.error("Erro ao emitir atualizacao de configuracao:", err.message);
+    }
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({
+      erro: err.message
+    });
   }
 };
 

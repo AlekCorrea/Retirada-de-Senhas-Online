@@ -13,6 +13,8 @@ FROM alpine:latest
 
 WORKDIR /output
 
+RUN apk add --no-cache tzdata
+
 COPY --from=builder /app/dist .
 
 CMD ["sh", "-c", "cp -r /output/* /app/dist/ && sleep infinity"]

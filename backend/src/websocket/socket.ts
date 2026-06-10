@@ -1,6 +1,31 @@
 const socketIO = require("socket.io");
 
 let io;
+const atendentesConectados = new Map();
+
+const contarAtendentesLogados = () => atendentesConectados.size;
+
+const emitirAtendentesLogados = () => {
+    if (!io) return;
+
+    io.emit("attendants-online-updated", {
+        total: contarAtendentesLogados()
+    });
+};
+
+const removerSocketAtendente = (socket) => {
+    const userId = socket.data?.atendenteUserId;
+    if (!userId || !atendentesConectados.has(userId)) return;
+
+    const sockets = atendentesConectados.get(userId);
+    sockets.delete(socket.id);
+
+    if (sockets.size === 0) {
+        atendentesConectados.delete(userId);
+    }
+
+    emitirAtendentesLogados();
+};
 
 const initializeSocket = (server) => {
     io = socketIO(server, {
@@ -24,6 +49,27 @@ const initializeSocket = (server) => {
             console.log(`Device registrado: ${deviceId} (${socket.role})`);
         });
 
+        socket.on("register-attendant", (data: { userId?: number | string; nome?: string } = {}) => {
+            const userId = data.userId ? String(data.userId) : null;
+            if (!userId) return;
+
+            removerSocketAtendente(socket);
+
+            const sockets = atendentesConectados.get(userId) || new Set();
+            sockets.add(socket.id);
+            atendentesConectados.set(userId, sockets);
+            socket.data.atendenteUserId = userId;
+            socket.role = "atendente";
+            socket.join("admin");
+
+            emitirAtendentesLogados();
+            console.log(`Atendente conectado: ${data.nome || userId} (${socket.id})`);
+        });
+
+        socket.on("unregister-attendant", () => {
+            removerSocketAtendente(socket);
+        });
+
         socket.on("join-admin", () => {
             socket.join("admin");
             socket.role = "admin";
@@ -31,6 +77,7 @@ const initializeSocket = (server) => {
         });
 
         socket.on("disconnect", () => {
+            removerSocketAtendente(socket);
             console.log(`Cliente desconectado: ${socket.id}`);
         });
 
@@ -52,5 +99,6 @@ const getIO = () => {
 
 module.exports = {
     initializeSocket,
-    getIO
+    getIO,
+    contarAtendentesLogados
 };

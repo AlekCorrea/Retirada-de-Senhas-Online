@@ -4,9 +4,23 @@
     <div class="card-principal">
       <!-- Cabeçalho do card -->
       <div class="card-header">
-        <div>
-          <h1>Bem vindo {{ authStore.user?.nome?.split(' ')[0] || 'Usuário' }}</h1>
-          <p>Retire sua senha</p>
+        <div class="client-profile">
+          <div class="profile-avatar">
+            <img
+              v-if="userPhotoUrl"
+              :src="userPhotoUrl"
+              :alt="`Foto de ${authStore.user?.nome || 'usuario'}`"
+              @error="fotoUsuarioErro = true"
+            />
+            <svg v-else viewBox="0 0 24 24" class="profile-avatar-icon" aria-hidden="true">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4Z" />
+              <path d="M4.5 20c.88-3.45 3.78-5.5 7.5-5.5s6.62 2.05 7.5 5.5" />
+            </svg>
+          </div>
+          <div>
+            <h1>Bem vindo {{ authStore.user?.nome?.split(' ')[0] || 'Usuário' }}</h1>
+            <p>Retire sua senha</p>
+          </div>
         </div>
         <button @click="logout" class="btn-sair">Sair</button>
       </div>
@@ -71,7 +85,7 @@
 
         <div class="previsao-card">
           <div class="previsao-linha"><span>👥</span><span>{{ senhaDoSistema.pessoasNaFrente || 0 }} pessoa(s) na frente</span></div>
-          <div class="previsao-linha"><span>⏱️</span><span>Tempo estimado: <strong>{{ senhaDoSistema.tempoEstimadoMinutos || 0 }} min</strong></span></div>
+          <div class="previsao-linha"><span>⏱️</span><span>Tempo estimado: <strong>{{ formatarMinutos(senhaDoSistema.tempoEstimadoMinutos) }} min</strong></span></div>
           <div class="previsao-linha destaque"><span>🕐</span><span>Previsão: <strong>{{ calcularHorarioEstimado(senhaDoSistema) }}</strong></span></div>
         </div>
 
@@ -127,6 +141,7 @@ const historico = ref([])
 const senhaExistente = ref(null)
 const senhaConcluida = ref(false)
 const mensagemConclusao = ref('Seu atendimento foi concluido com sucesso.')
+const fotoUsuarioErro = ref(false)
 let timeoutConclusao = null
 
 const getDeviceId = () => localStorage.getItem('deviceId')
@@ -156,6 +171,12 @@ const senhaDoSistema = computed(() => {
   return s
 })
 
+const userPhotoUrl = computed(() => {
+  if (fotoUsuarioErro.value) return ''
+  const user = authStore.user || {}
+  return user.foto || user.foto_url || user.picture || user.avatar_url || user.image || ''
+})
+
 // Controla se a tela deve mostrar o estado "chamando" ou o formulário
 const mostrarChamando = computed(() => {
   return senhaDoSistema.value && senhaDoSistema.value.status === 'chamando'
@@ -172,6 +193,7 @@ const processGoogleCallback = () => {
       authStore.setToken(token)
       authStore.setUser(userData)
       authStore.setAdmin(false)
+      fotoUsuarioErro.value = false
       if (senha) {
         try {
           senhaExistente.value = JSON.parse(decodeURIComponent(senha))
@@ -222,6 +244,8 @@ onMounted(() => {
   on('ticket-called', atualizarPorEvento)
   on('attendance-finished', atualizarPorEvento)
   on('ticket-cancelled', atualizarPorEvento)
+  on('attendants-online-updated', atualizarPorEvento)
+  on('attendance-config-updated', atualizarPorEvento)
 })
 
 onUnmounted(() => {
@@ -231,6 +255,8 @@ onUnmounted(() => {
   off('ticket-called', atualizarPorEvento)
   off('attendance-finished', atualizarPorEvento)
   off('ticket-cancelled', atualizarPorEvento)
+  off('attendants-online-updated', atualizarPorEvento)
+  off('attendance-config-updated', atualizarPorEvento)
 })
 
 const carregarHistorico = async (silent = false) => {
@@ -272,10 +298,15 @@ const logout = () => {
 const getStatusLabel = (s) => ({ esperando: 'Pendente', chamando: 'Chamando', atendido: 'Atendido', cancelado: 'Cancelado' }[s] || s)
 
 const calcularHorarioEstimado = (senha) => {
+  if (senha?.previsaoAtendimento) {
+    return new Date(senha.previsaoAtendimento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
   const agora = new Date()
   agora.setMinutes(agora.getMinutes() + (senha?.tempoEstimadoMinutos || 0))
   return agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
+
+const formatarMinutos = (minutos) => Number(minutos || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 
 const formatarData = (d) => {
   if (!d) return ''
@@ -328,6 +359,42 @@ const formatarData = (d) => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.client-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #8F9AD2;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-avatar-icon {
+  width: 40px;
+  height: 40px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .card-header h1 {
@@ -635,6 +702,14 @@ const formatarData = (d) => {
 @media (max-width: 600px) {
   .card-principal { padding: 28px 20px; margin: 20px 10px; }
   .card-header { align-items: center; }
+  .profile-avatar {
+    width: 56px;
+    height: 56px;
+  }
+  .profile-avatar-icon {
+    width: 32px;
+    height: 32px;
+  }
   .opcoes-tipo { grid-template-columns: 1fr; }
   .numero { font-size: 4rem; padding: 24px; }
   .user-name-top { display: none; }

@@ -12,17 +12,28 @@
       </div>
     </header>
 
-    <section class="hero-grid">
+    <section class="hero-grid" aria-live="polite">
       <article class="info-card chamada-card" :class="{ pulse: chamadaAtual }">
-        <span class="card-label">Senha chamada</span>
+        <div class="card-heading">
+          <span class="card-label">Senha chamada</span>
+          <span class="card-status">{{ chamadaAtual ? 'Em atendimento' : 'Aguardando chamada' }}</span>
+        </div>
         <strong class="senha-numero">{{ chamadaAtual?.numero || '--' }}</strong>
-        <span class="tipo-pill" :class="chamadaAtual?.tipo || 'vazio'">
-          {{ formatarTipo(chamadaAtual?.tipo) }}
-        </span>
+        <div class="card-footer">
+          <span class="tipo-pill" :class="chamadaAtual?.tipo || 'vazio'">
+            {{ formatarTipo(chamadaAtual?.tipo) }}
+          </span>
+          <span class="chamada-hora">
+            {{ chamadaAtual?.updated_at ? formatarHora(chamadaAtual.updated_at) : horaAtual }}
+          </span>
+        </div>
       </article>
 
       <article class="info-card local-card">
-        <span class="card-label">Local</span>
+        <div class="card-heading">
+          <span class="card-label">Local</span>
+          <span class="card-status">Destino</span>
+        </div>
         <strong class="local-nome">{{ localAtendimento }}</strong>
         <span class="card-hint">Dirija-se ao local indicado</span>
       </article>
@@ -37,12 +48,12 @@
 
         <div v-if="ultimasChamadas.length" class="ultimas-lista">
           <div v-for="senha in ultimasChamadas" :key="senha.id" class="ultima-item">
+            <span class="ultima-hora">{{ formatarHora(senha.updated_at) }}</span>
             <span class="ultima-numero">{{ senha.numero }}</span>
             <span class="ultima-meta">
-              {{ formatarTipo(senha.tipo) }}
-              <strong v-if="senha.guiche">{{ senha.guiche }}</strong>
+              <span>{{ formatarTipo(senha.tipo) }}</span>
+              <strong>{{ senha.guiche || 'Local --' }}</strong>
             </span>
-            <span class="ultima-hora">{{ formatarHora(senha.updated_at) }}</span>
           </div>
         </div>
         <div v-else class="estado-vazio">
@@ -51,23 +62,18 @@
       </article>
 
       <aside class="resumo-card">
-        <h2>Fila agora</h2>
+        <div>
+          <span class="resumo-label">Resumo</span>
+          <h2>Fila agora</h2>
+        </div>
         <div class="metricas-grid">
           <div class="metrica">
-            <span>Esperando</span>
-            <strong>{{ stats.esperando || 0 }}</strong>
+            <span>Aguardando</span>
+            <strong>{{ totalAguardando }}</strong>
           </div>
           <div class="metrica">
-            <span>Chamando</span>
-            <strong>{{ stats.chamando || 0 }}</strong>
-          </div>
-          <div class="metrica">
-            <span>Normal</span>
-            <strong>{{ stats.normais || 0 }}</strong>
-          </div>
-          <div class="metrica">
-            <span>Preferencial</span>
-            <strong>{{ stats.prioritarias || 0 }}</strong>
+            <span>Atendidos</span>
+            <strong>{{ totalAtendidos }}</strong>
           </div>
         </div>
       </aside>
@@ -99,6 +105,9 @@ const localAtendimento = computed(() => {
 const horaAtual = computed(() =>
   agora.value.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 )
+
+const totalAguardando = computed(() => stats.value.esperando || 0)
+const totalAtendidos = computed(() => stats.value.atendido || stats.value.atendidos || 0)
 
 const carregarPainel = async () => {
   try {
@@ -160,7 +169,7 @@ onUnmounted(() => {
   color: #0b102f;
   font-family: 'Inter', 'Segoe UI', sans-serif;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) minmax(0, 0.72fr);
+  grid-template-rows: auto minmax(0, 1.1fr) minmax(0, 0.74fr);
   gap: clamp(14px, 1.4vw, 24px);
   overflow: hidden;
 }
@@ -175,6 +184,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  box-shadow: 0 18px 46px rgba(5, 8, 23, 0.28);
 }
 
 .eyebrow {
@@ -203,6 +213,9 @@ onUnmounted(() => {
   gap: 14px;
   font-size: 1.15rem;
   white-space: nowrap;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .status-area strong {
@@ -224,7 +237,7 @@ onUnmounted(() => {
 
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  grid-template-columns: minmax(0, 1.32fr) minmax(300px, 0.68fr);
   gap: clamp(14px, 1.4vw, 24px);
   min-height: 0;
 }
@@ -243,7 +256,30 @@ onUnmounted(() => {
   padding: clamp(22px, 2.1vw, 34px);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.info-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.card-heading,
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.card-heading {
+  margin-bottom: 12px;
 }
 
 .card-label {
@@ -251,16 +287,29 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+.card-status,
+.chamada-hora,
+.resumo-label {
+  color: #dfe4ff;
+  font-size: clamp(1rem, 1.15vw, 1.3rem);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .senha-numero {
-  margin: 10px 0 18px;
-  font-size: clamp(7rem, 18vw, 17rem);
+  margin: 8px 0 20px;
+  font-size: clamp(7rem, 18vw, 18rem);
   line-height: 0.86;
+  letter-spacing: 0;
+  text-shadow: 0 14px 30px rgba(5, 8, 23, 0.2);
 }
 
 .local-nome {
-  margin-top: 12px;
-  font-size: clamp(4rem, 8vw, 8rem);
+  margin: auto 0 22px;
+  font-size: clamp(4rem, 8vw, 8.2rem);
   line-height: 0.95;
+  word-break: break-word;
+  text-shadow: 0 12px 26px rgba(5, 8, 23, 0.2);
 }
 
 .card-hint,
@@ -270,6 +319,7 @@ onUnmounted(() => {
   padding: 10px 22px;
   background: rgba(5, 8, 23, 0.35);
   font-size: clamp(1.1rem, 1.6vw, 1.7rem);
+  font-weight: 700;
 }
 
 .tipo-pill.prioritario {
@@ -284,7 +334,7 @@ onUnmounted(() => {
 
 .painel-corpo {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.38fr);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.38fr);
   gap: clamp(14px, 1.4vw, 24px);
   min-height: 0;
 }
@@ -294,6 +344,11 @@ onUnmounted(() => {
   min-height: 0;
   padding: clamp(20px, 1.8vw, 30px);
   overflow: hidden;
+}
+
+.resumo-card {
+  display: flex;
+  flex-direction: column;
 }
 
 .section-title {
@@ -316,7 +371,7 @@ onUnmounted(() => {
 
 .ultimas-lista {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  grid-template-columns: repeat(5, minmax(132px, 1fr));
   gap: clamp(12px, 1vw, 16px);
   height: calc(100% - 72px);
 }
@@ -329,14 +384,17 @@ onUnmounted(() => {
   color: #0b102f;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: inset 0 0 0 1px rgba(65, 79, 149, 0.12);
 }
 
 .ultima-numero {
-  font-size: clamp(3.2rem, 5vw, 6rem);
+  max-width: 100%;
+  font-size: clamp(2.4rem, 3.7vw, 4.6rem);
   font-weight: 800;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .ultima-meta {
@@ -344,6 +402,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 4px;
   font-size: clamp(1rem, 1.2vw, 1.35rem);
+  line-height: 1.15;
 }
 
 .ultima-meta strong,
@@ -354,6 +413,10 @@ onUnmounted(() => {
 .ultima-hora {
   font-size: clamp(0.95rem, 1vw, 1.2rem);
   font-weight: 700;
+  align-self: flex-end;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #dbe8ff;
 }
 
 .estado-vazio {
@@ -367,29 +430,36 @@ onUnmounted(() => {
 
 .metricas-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
-  margin-top: 26px;
+  margin-top: 22px;
+  flex: 1;
+  min-height: 0;
 }
 
 .metrica {
-  min-height: 128px;
-  padding: 18px;
+  min-height: 0;
+  padding: clamp(16px, 1.4vw, 24px);
   border-radius: 8px;
   background: rgba(5, 8, 23, 0.26);
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: space-between;
+  gap: 18px;
 }
 
 .metrica span {
   color: #dfe4ff;
-  font-size: 1.05rem;
+  font-size: clamp(1rem, 1.35vw, 1.55rem);
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .metrica strong {
-  font-size: clamp(2.5rem, 5vw, 5rem);
+  max-width: 100%;
+  font-size: clamp(2.4rem, 4.2vw, 4.4rem);
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .pulse {
@@ -411,6 +481,7 @@ onUnmounted(() => {
     height: auto;
     min-height: 100vh;
     overflow: auto;
+    grid-template-rows: auto;
   }
 
   .ultimas-lista {
@@ -435,12 +506,24 @@ onUnmounted(() => {
     white-space: normal;
   }
 
+  .card-heading,
+  .card-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
   .info-card {
     min-height: 260px;
   }
 
   .metricas-grid {
     grid-template-columns: 1fr;
+  }
+
+  .metrica {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

@@ -43,6 +43,18 @@ export function useSocket() {
     }
   }
 
+  const registerAttendant = (user) => {
+    if (socket.value && user?.id) {
+      socket.value.emit('register-attendant', { userId: user.id, nome: user.nome })
+    }
+  }
+
+  const unregisterAttendant = () => {
+    if (socket.value) {
+      socket.value.emit('unregister-attendant')
+    }
+  }
+
   const on = (event, callback) => {
     if (socket.value) {
       socket.value.on(event, callback)
@@ -72,6 +84,8 @@ export function useSocket() {
     disconnect,
     registerDevice,
     joinAdmin,
+    registerAttendant,
+    unregisterAttendant,
     on,
     off,
     emit

@@ -3,7 +3,12 @@
     <!-- Header -->
     <header class="topbar">
       <div class="topbar-left">
-        <div class="avatar-circle"></div>
+        <div class="avatar-circle" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="avatar-icon">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4Z" />
+            <path d="M4.5 20c.88-3.45 3.78-5.5 7.5-5.5s6.62 2.05 7.5 5.5" />
+          </svg>
+        </div>
         <div class="topbar-info">
           <span class="topbar-title">Bem vindo ADM</span>
           <span class="topbar-sub">Gerencie o sistema</span>
@@ -57,18 +62,56 @@
         <h2 class="section-title">Fila de Senhas:</h2>
         <div v-if="loading" class="loading-state">Carregando...</div>
         <div v-else-if="senhas.length === 0" class="vazio-state">Nenhuma senha na fila</div>
-        <div v-else class="senhas-grid">
-          <div v-for="senha in senhas" :key="senha.id" class="senha-card" :class="'status-' + senha.status">
-            <div class="senha-card-top" :class="'top-' + senha.status"></div>
-            <div class="senha-numero-grande">{{ senha.numero }}</div>
-            <div class="senha-meta">
-              <span class="senha-status">Status: {{ getStatusLabel(senha.status) }}</span>
-              <span class="senha-codigo">Código: {{ senha.codigo_verificacao }}</span>
+        <div v-else class="filas-grid">
+          <section class="fila-card">
+            <h3 class="fila-titulo">Para chamar</h3>
+            <div v-if="filaPendenteOrdenada.length === 0" class="fila-vazia">Nenhuma senha pendente</div>
+            <div v-else class="fila-lista">
+              <div
+                v-for="senha in filaPendenteOrdenada"
+                :key="senha.id"
+                class="fila-item"
+                :class="{ 'item-chamando': senha.status === 'chamando' }"
+              >
+                <div class="item-avatar-circle" :class="senha.tipo">
+                  {{ senha.tipo === 'prioritario' ? 'P' : 'N' }}
+                </div>
+                <div class="item-info">
+                  <div class="item-tipo">{{ senha.tipo === 'prioritario' ? 'Preferencial' : 'Normal' }}</div>
+                  <div class="item-numero">Senha: {{ senha.numero }}</div>
+                </div>
+                <div class="item-extra">
+                  <span class="item-status" :class="'status-' + senha.status">{{ getStatusLabel(senha.status) }}</span>
+                  <span class="item-data">{{ formatarData(senha.criado_em || senha.created_at) }}</span>
+                </div>
+              </div>
             </div>
-            <div class="senha-tipo-badge" :class="senha.tipo">
-              {{ senha.tipo === 'prioritario' ? 'P' : 'N' }}
+          </section>
+
+          <section class="fila-card">
+            <h3 class="fila-titulo">Atendidas ou canceladas</h3>
+            <div v-if="filaFinalizadaInvertida.length === 0" class="fila-vazia">Nenhuma senha finalizada</div>
+            <div v-else class="fila-lista">
+              <div
+                v-for="senha in filaFinalizadaInvertida"
+                :key="senha.id"
+                class="fila-item"
+                :class="{ 'item-cancelado': senha.status === 'cancelado' }"
+              >
+                <div class="item-avatar-circle" :class="senha.tipo">
+                  {{ senha.tipo === 'prioritario' ? 'P' : 'N' }}
+                </div>
+                <div class="item-info">
+                  <div class="item-tipo">{{ senha.tipo === 'prioritario' ? 'Preferencial' : 'Normal' }}</div>
+                  <div class="item-numero">Senha: {{ senha.numero }}</div>
+                </div>
+                <div class="item-extra">
+                  <span class="item-status" :class="'status-' + senha.status">{{ getStatusLabel(senha.status) }}</span>
+                  <span class="item-data">{{ formatarData(senha.atualizado_em || senha.updated_at) }}</span>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
 
@@ -139,14 +182,72 @@
       <!-- Aba Configurações -->
       <div v-else class="tab-content">
         <h2 class="section-title">Configurações do Sistema</h2>
-        <div class="config-placeholder">🔧 Em breve será possível configurar parâmetros do sistema aqui.</div>
+        <div class="config-card">
+          <div class="config-header">
+            <div>
+              <h3>Dias com atendimento</h3>
+              <p>As senhas so serao entregues nos dias e horarios permitidos.</p>
+            </div>
+            <span class="config-status" :class="{ fechado: !atendimentoHoje }">
+              {{ atendimentoHoje ? 'Atendimento liberado hoje' : 'Sem entrega hoje' }}
+            </span>
+          </div>
+
+          <div class="dias-grid">
+            <label v-for="dia in diasSemana" :key="dia.valor" class="dia-option" :class="{ checked: diasAtendimento.includes(dia.valor) }">
+              <input
+                type="checkbox"
+                :value="dia.valor"
+                v-model="diasAtendimento"
+              />
+              <span>{{ dia.label }}</span>
+            </label>
+          </div>
+
+          <div class="horarios-grid">
+            <div class="horario-field">
+              <label>Inicio da entrega de senhas</label>
+              <input v-model="horaInicioEntrega" type="time" class="tbl-input" />
+            </div>
+            <div class="horario-field">
+              <label>Inicio dos atendimentos</label>
+              <input v-model="horaInicioAtendimento" type="time" class="tbl-input" />
+            </div>
+            <div class="horario-field">
+              <label>Fim dos atendimentos</label>
+              <input v-model="horaFimAtendimento" type="time" class="tbl-input" />
+            </div>
+            <div class="horario-field">
+              <label>Tempo medio por atendimento (min)</label>
+              <input v-model.number="tempoMedioAtendimentoMinutos" type="number" min="1" step="0.5" class="tbl-input" />
+            </div>
+          </div>
+
+          <div class="tempo-efetivo-info">
+            <span>Atendentes online: <strong>{{ atendentesLogados }}</strong></span>
+            <span>Tempo usado na previsao: <strong>{{ tempoMedioEfetivoFormatado }} min</strong></span>
+          </div>
+
+          <div class="config-actions">
+            <button @click="fetchConfigAtendimento" class="btn-secondary" :disabled="configLoading">
+              Atualizar
+            </button>
+            <button @click="salvarConfigAtendimento" class="btn-primary btn-config" :disabled="configLoading">
+              {{ configLoading ? 'Salvando...' : 'Salvar configuracoes' }}
+            </button>
+          </div>
+
+          <div v-if="configMensagem" class="config-message" :class="{ erro: configErro }">
+            {{ configMensagem }}
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, onUnmounted } from 'vue'
+import { computed, onMounted, ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSocket } from '../composables/useSocket'
@@ -161,12 +262,79 @@ const loading = ref(false)
 const activeTab = ref('fila')
 const users = ref([])
 const newUser = ref({ nome: '', email: '', senha: '', perfil: 'atendente' })
+const diasAtendimento = ref([0, 1, 2, 3, 4, 5, 6])
+const diaAtualAtendimento = ref(new Date().getDay())
+const horaInicioEntrega = ref('08:00')
+const horaInicioAtendimento = ref('08:00')
+const horaFimAtendimento = ref('18:00')
+const tempoMedioAtendimentoMinutos = ref(5)
+const atendentesLogados = ref(0)
+const tempoMedioEfetivoMinutos = ref(5)
+const configLoading = ref(false)
+const configMensagem = ref('')
+const configErro = ref(false)
+
+const diasSemana = [
+  { valor: 0, label: 'Domingo' },
+  { valor: 1, label: 'Segunda' },
+  { valor: 2, label: 'Terca' },
+  { valor: 3, label: 'Quarta' },
+  { valor: 4, label: 'Quinta' },
+  { valor: 5, label: 'Sexta' },
+  { valor: 6, label: 'Sabado' }
+]
+
+const atendimentoHoje = computed(() => diasAtendimento.value.includes(diaAtualAtendimento.value))
+const tempoMedioEfetivoFormatado = computed(() => Number(tempoMedioEfetivoMinutos.value || 5).toLocaleString('pt-BR', { maximumFractionDigits: 2 }))
 
 const tabs = [
   { id: 'fila', label: 'Fila' },
   { id: 'usuarios', label: 'Usuários' },
   { id: 'config', label: 'Configurações' }
 ]
+
+const ordenarPorChamada = (senhasFila) => {
+  const chamando = senhasFila.filter(s => s.status === 'chamando')
+  const restantes = senhasFila.filter(s => s.status !== 'chamando')
+  const ordem = []
+  let contadorPrioritarias = 0
+
+  while (restantes.length > 0) {
+    let indice = -1
+
+    if (contadorPrioritarias < 3) {
+      indice = restantes.findIndex(s => s.tipo === 'prioritario')
+      if (indice === -1) {
+        indice = 0
+        contadorPrioritarias = 0
+      } else {
+        contadorPrioritarias++
+      }
+    } else {
+      indice = restantes.findIndex(s => s.tipo === 'normal')
+      if (indice === -1) {
+        indice = 0
+        contadorPrioritarias++
+      } else {
+        contadorPrioritarias = 0
+      }
+    }
+
+    ordem.push(restantes.splice(indice, 1)[0])
+  }
+
+  return [...chamando, ...ordem]
+}
+
+const filaPendente = computed(() => senhas.value.filter(s => s.status === 'esperando' || s.status === 'chamando'))
+const filaPendenteOrdenada = computed(() => ordenarPorChamada([...filaPendente.value]))
+const filaFinalizada = computed(() => senhas.value.filter(s => s.status === 'atendido' || s.status === 'cancelado'))
+const filaFinalizadaInvertida = computed(() => [...filaFinalizada.value].reverse())
+
+const formatarData = (d) => {
+  if (!d) return ''
+  return new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
 
 const fetchQueueData = async () => {
   loading.value = true
@@ -190,6 +358,62 @@ const fetchUsers = async () => {
     const r = await axios.get('/api/users', { headers: { Authorization: `Bearer ${authStore.token}` } })
     users.value = r.data
   } catch (e) {}
+}
+
+const fetchConfigAtendimento = async () => {
+  configLoading.value = true
+  configMensagem.value = ''
+  configErro.value = false
+  try {
+    const r = await axios.get('/api/config/atendimento', { headers: { Authorization: `Bearer ${authStore.token}` } })
+    diasAtendimento.value = Array.isArray(r.data?.diasAtendimento) ? r.data.diasAtendimento : [0, 1, 2, 3, 4, 5, 6]
+    diaAtualAtendimento.value = Number.isInteger(r.data?.diaAtual) ? r.data.diaAtual : new Date().getDay()
+    horaInicioEntrega.value = r.data?.horaInicioEntrega || '08:00'
+    horaInicioAtendimento.value = r.data?.horaInicioAtendimento || '08:00'
+    horaFimAtendimento.value = r.data?.horaFimAtendimento || '18:00'
+    tempoMedioAtendimentoMinutos.value = Number(r.data?.tempoMedioAtendimentoMinutos) || 5
+    atendentesLogados.value = Number(r.data?.atendentesLogados) || 0
+    tempoMedioEfetivoMinutos.value = Number(r.data?.tempoMedioEfetivoMinutos) || tempoMedioAtendimentoMinutos.value
+  } catch (e) {
+    configErro.value = true
+    configMensagem.value = 'Erro ao carregar configuracoes.'
+  } finally {
+    configLoading.value = false
+  }
+}
+
+const salvarConfigAtendimento = async () => {
+  configLoading.value = true
+  configMensagem.value = ''
+  configErro.value = false
+  try {
+    const diasOrdenados = [...diasAtendimento.value].sort((a, b) => a - b)
+    const r = await axios.put(
+      '/api/config/atendimento',
+      {
+        diasAtendimento: diasOrdenados,
+        horaInicioEntrega: horaInicioEntrega.value,
+        horaInicioAtendimento: horaInicioAtendimento.value,
+        horaFimAtendimento: horaFimAtendimento.value,
+        tempoMedioAtendimentoMinutos: tempoMedioAtendimentoMinutos.value
+      },
+      { headers: { Authorization: `Bearer ${authStore.token}` } }
+    )
+    diasAtendimento.value = r.data?.diasAtendimento || diasOrdenados
+    diaAtualAtendimento.value = Number.isInteger(r.data?.diaAtual) ? r.data.diaAtual : diaAtualAtendimento.value
+    horaInicioEntrega.value = r.data?.horaInicioEntrega || horaInicioEntrega.value
+    horaInicioAtendimento.value = r.data?.horaInicioAtendimento || horaInicioAtendimento.value
+    horaFimAtendimento.value = r.data?.horaFimAtendimento || horaFimAtendimento.value
+    tempoMedioAtendimentoMinutos.value = Number(r.data?.tempoMedioAtendimentoMinutos) || tempoMedioAtendimentoMinutos.value
+    atendentesLogados.value = Number(r.data?.atendentesLogados) || atendentesLogados.value
+    tempoMedioEfetivoMinutos.value = Number(r.data?.tempoMedioEfetivoMinutos) || tempoMedioAtendimentoMinutos.value
+    configMensagem.value = 'Configuracoes salvas com sucesso.'
+  } catch (e) {
+    configErro.value = true
+    configMensagem.value = e.response?.data?.erro || 'Erro ao salvar configuracoes.'
+  } finally {
+    configLoading.value = false
+  }
 }
 
 const createUser = async () => {
@@ -223,15 +447,20 @@ onMounted(() => {
   if (!authStore.isLoggedIn || !authStore.isAdmin) { router.push('/login'); return }
   fetchUsers()
   fetchQueueData()
+  fetchConfigAtendimento()
   connect()
   joinAdmin()
   on('queue-updated', fetchQueueData)
   on('queue-stats-updated', fetchQueueData)
+  on('attendants-online-updated', fetchConfigAtendimento)
+  on('attendance-config-updated', fetchConfigAtendimento)
 })
 
 onUnmounted(() => {
   off('queue-updated', fetchQueueData)
   off('queue-stats-updated', fetchQueueData)
+  off('attendants-online-updated', fetchConfigAtendimento)
+  off('attendance-config-updated', fetchConfigAtendimento)
 })
 </script>
 
@@ -268,6 +497,19 @@ onUnmounted(() => {
   border-radius: 50%;
   background: #8F9AD2;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-icon {
+  width: 44px;
+  height: 44px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .topbar-info { display: flex; flex-direction: column; gap: 2px; }
@@ -352,63 +594,123 @@ onUnmounted(() => {
 .stat-valor { font-size: 2.8rem; font-weight: 400; color: #000; font-family: 'Inter', sans-serif; line-height: 1; }
 .stat-label { font-size: 1.2rem; color: #000; font-family: 'Inter', sans-serif; margin-top: 8px; }
 
-/* Senhas grid */
-.senhas-grid {
+/* Filas */
+.filas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
 
-.senha-card {
-  background: #D8FFDE;
-  border-radius: 25px;
-  padding: 0;
-  overflow: hidden;
-  box-shadow: 10px 10px 4px rgba(0,0,0,0.25);
-  position: relative;
+.fila-card {
+  min-height: 300px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 20px;
+  padding: 20px;
+  border: 1px solid rgba(0,0,0,0.08);
 }
 
-.senha-card-top {
-  height: 12px;
-  border-radius: 25px 25px 0 0;
-  background: #8EFFA0;
-}
-
-.senha-card.status-esperando { background: #fef3c7; }
-.senha-card.status-esperando .senha-card-top { background: #f59e0b; }
-.senha-card.status-chamando { background: #dbeafe; }
-.senha-card.status-chamando .senha-card-top { background: #3b82f6; }
-.senha-card.status-cancelado { background: #fee2e2; }
-.senha-card.status-cancelado .senha-card-top { background: #ef4444; }
-
-.senha-numero-grande {
+.fila-titulo {
   font-family: 'Inter', sans-serif;
-  font-size: 2.5rem;
+  font-size: 1.4rem;
   font-weight: 400;
   color: #000;
-  padding: 16px 20px 4px;
+  margin: 0 0 20px;
 }
 
-.senha-meta { padding: 4px 20px 12px; display: flex; flex-direction: column; gap: 4px; }
-.senha-status { font-size: 0.9rem; color: #000; font-family: 'Inter', sans-serif; }
-.senha-codigo { font-size: 0.85rem; color: #555; font-family: 'Inter', sans-serif; }
+.fila-vazia {
+  color: #555;
+  padding: 20px 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+}
 
-.senha-tipo-badge {
-  position: absolute;
-  top: 20px;
-  right: 16px;
-  width: 28px; height: 28px;
+.fila-lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.fila-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 8px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  transition: background 0.15s;
+}
+
+.fila-item:last-child { border-bottom: none; }
+.fila-item:hover { background: rgba(255,255,255,0.5); border-radius: 8px; }
+.item-chamando { background: rgba(59,130,246,0.08); }
+.item-cancelado { background: rgba(239,68,68,0.05); }
+
+.item-avatar-circle {
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
+  background: #3b82f6;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 0.85rem;
   color: #fff;
-  background: #3b82f6;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
-.senha-tipo-badge.prioritario { background: #ef4444; }
+.item-avatar-circle.prioritario { background: #ef4444; }
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-tipo {
+  font-size: 1rem;
+  font-weight: 400;
+  color: #000;
+  font-family: 'Inter', sans-serif;
+}
+
+.item-numero {
+  display: inline-block;
+  background: #FFE2C5;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 0.8rem;
+  color: #000;
+  font-family: 'Inter', sans-serif;
+  margin-top: 4px;
+}
+
+.item-extra {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.item-status {
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  background: rgba(0,0,0,0.08);
+  color: #555;
+}
+
+.item-status.status-esperando { background: #fef3c7; color: #92400e; }
+.item-status.status-chamando { background: #dbeafe; color: #1d4ed8; }
+.item-status.status-atendido { background: #D8FFDE; color: #065f46; }
+.item-status.status-cancelado { background: #fee2e2; color: #991b1b; }
+
+.item-data {
+  font-size: 0.85rem;
+  color: rgba(0,0,0,0.5);
+  font-family: 'Inter', sans-serif;
+}
 
 .loading-state, .vazio-state { padding: 40px; text-align: center; color: #555; font-family: 'Inter', sans-serif; font-size: 1.1rem; }
 
@@ -502,15 +804,155 @@ onUnmounted(() => {
 .form-group label { font-size: 0.9rem; font-weight: 600; color: #000; font-family: 'Inter', sans-serif; }
 
 /* Config */
-.config-placeholder {
-  text-align: center;
-  padding: 60px 20px;
-  color: #555;
+.config-card {
+  background: rgba(255,255,255,0.5);
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid rgba(0,0,0,0.1);
   font-family: 'Inter', sans-serif;
+}
+
+.config-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.config-header h3 {
+  margin: 0 0 6px;
   font-size: 1.1rem;
-  background: rgba(255,255,255,0.4);
-  border-radius: 14px;
-  border: 2px dashed rgba(0,0,0,0.15);
+  color: #000;
+}
+
+.config-header p {
+  margin: 0;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.config-status {
+  flex-shrink: 0;
+  background: #D8FFDE;
+  color: #065f46;
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.config-status.fechado {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.dias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.dia-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dia-option.checked {
+  border-color: #0C56DA;
+  background: #e8efff;
+  box-shadow: 0 0 0 3px rgba(12,86,218,0.1);
+}
+
+.dia-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: #0C56DA;
+}
+
+.dia-option span {
+  color: #000;
+  font-size: 0.95rem;
+}
+
+.horarios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.horario-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.horario-field label {
+  color: #000;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tempo-efetivo-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.tempo-efetivo-info span {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.btn-config {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+
+.btn-config:disabled,
+.btn-secondary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.config-message {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #D8FFDE;
+  color: #065f46;
+  font-size: 0.95rem;
+}
+
+.config-message.erro {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 /* Tab content */
@@ -522,12 +964,17 @@ onUnmounted(() => {
   .card-principal { margin: 16px; width: calc(100% - 32px); padding: 20px; }
   .tabs { flex-wrap: wrap; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .filas-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
   .topbar-title { font-size: 1.2rem; }
   .tabs { gap: 8px; }
   .tab-btn { padding: 10px 20px; font-size: 1rem; }
-  .senhas-grid { grid-template-columns: 1fr; }
+  .config-header { flex-direction: column; }
+  .config-status { width: 100%; text-align: center; }
+  .config-actions { flex-direction: column; }
+  .config-actions .btn-secondary,
+  .config-actions .btn-config { width: 100%; }
 }
 </style>

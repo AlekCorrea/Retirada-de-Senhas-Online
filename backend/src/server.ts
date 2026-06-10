@@ -48,6 +48,32 @@ const ensureGuicheColumn = async () => {
     }
 };
 
+const ensureAttendanceConfigSchema = async () => {
+    try {
+        await db.query("ALTER TABLE senha ADD COLUMN IF NOT EXISTS data_atendimento DATE DEFAULT CURRENT_DATE");
+        await db.query("UPDATE senha SET data_atendimento = COALESCE(data_atendimento, created_at::date)");
+        await db.query("ALTER TABLE senha ALTER COLUMN data_atendimento SET NOT NULL");
+        await db.query("ALTER TABLE senha DROP CONSTRAINT IF EXISTS senha_numero_key");
+        await db.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_senha_numero_data ON senha(numero, data_atendimento)");
+        await db.query("CREATE INDEX IF NOT EXISTS idx_senha_data_atendimento ON senha(data_atendimento)");
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS sistema_config (
+                chave VARCHAR(100) PRIMARY KEY,
+                valor JSONB NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await db.query(`
+            INSERT INTO sistema_config (chave, valor)
+            VALUES ('dias_atendimento', '{"diasAtendimento":[0,1,2,3,4,5,6],"horaInicioEntrega":"08:00","horaInicioAtendimento":"08:00","horaFimAtendimento":"18:00","tempoMedioAtendimentoMinutos":5}'::jsonb)
+            ON CONFLICT (chave) DO NOTHING
+        `);
+    } catch (err) {
+        console.error("Erro ao garantir schema de configuracoes:", err.message);
+    }
+};
+
 // Importar rotas
 const authRoutes = require("./routes/authRoutes");
 const senhaRoutes = require("./routes/senhaRoutes");
@@ -155,7 +181,7 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-Promise.all([migrateLegacyStaffPasswords(), ensureGuicheColumn()]).finally(() => {
+Promise.all([migrateLegacyStaffPasswords(), ensureGuicheColumn(), ensureAttendanceConfigSchema()]).finally(() => {
 server.listen(PORT, () => {
     console.log(`
 ╔════════════════════════════════════════════════════════════╗

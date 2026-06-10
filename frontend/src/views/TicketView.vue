@@ -69,7 +69,7 @@
           </div>
           <div class="previsao-linha">
             <span>⏱️</span>
-            <span>Tempo estimado: <strong>{{ senhaRetirada.tempoEstimadoMinutos || tempoEstimado }} min</strong></span>
+            <span>Tempo estimado: <strong>{{ tempoEstimadoFormatado }} min</strong></span>
           </div>
           <div class="previsao-linha destaque">
             <span>🕐</span>
@@ -121,7 +121,7 @@ const carregando = ref(false)
 const carregandoLogin = ref(false)
 const erro = ref('')
 const senhaRetirada = ref(null)
-const tempoEstimado = ref(15)
+const tempoEstimado = ref(0)
 const deviceId = ref('')
 const senhaFinalizada = ref(false)
 let intervaloMinhaSenha = null
@@ -150,6 +150,8 @@ onMounted(() => {
   on('ticket-called', atualizarSenhaPorEvento)
   on('attendance-finished', finalizarSenhaPorEvento)
   on('ticket-cancelled', finalizarSenhaPorEvento)
+  on('attendants-online-updated', verificarMinhaSenha)
+  on('attendance-config-updated', verificarMinhaSenha)
   if (senhaRetirada.value) iniciarPollingSenha()
 })
 
@@ -167,11 +169,16 @@ const voltarParaRetirar = () => limparEstadoSenha()
 
 const horarioPrevisao = computed(() => {
   if (!senhaRetirada.value) return '--:--'
+  if (senhaRetirada.value.previsaoAtendimento) {
+    return new Date(senhaRetirada.value.previsaoAtendimento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
   const agora = new Date()
-  const min = senhaRetirada.value.tempoEstimadoMinutos || (senhaRetirada.value.pessoasNaFrente || 0) * 5
+  const min = senhaRetirada.value.tempoEstimadoMinutos || tempoEstimado.value || 0
   agora.setMinutes(agora.getMinutes() + min)
   return agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 })
+
+const tempoEstimadoFormatado = computed(() => Number(senhaRetirada.value?.tempoEstimadoMinutos || tempoEstimado.value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 }))
 
 const verificarMinhaSenha = async () => {
   if (!deviceId.value || !senhaRetirada.value) return
@@ -182,7 +189,8 @@ const verificarMinhaSenha = async () => {
       clearInterval(intervaloMinhaSenha)
       setTimeout(() => limparEstadoSenha(), 5000)
     } else if (r.data?.numero) {
-      senhaRetirada.value = { ...senhaRetirada.value, status: r.data.status, guiche: r.data.guiche, pessoasNaFrente: r.data.pessoasNaFrente, tempoEstimadoMinutos: r.data.tempoEstimadoMinutos }
+      senhaRetirada.value = { ...senhaRetirada.value, status: r.data.status, guiche: r.data.guiche, pessoasNaFrente: r.data.pessoasNaFrente, tempoEstimadoMinutos: r.data.tempoEstimadoMinutos, previsaoAtendimento: r.data.previsaoAtendimento }
+      tempoEstimado.value = Number(r.data.tempoEstimadoMinutos) || 0
       salvarEstado()
     }
   } catch (e) {}
@@ -226,6 +234,8 @@ onBeforeUnmount(() => {
   off('ticket-called', atualizarSenhaPorEvento)
   off('attendance-finished', finalizarSenhaPorEvento)
   off('ticket-cancelled', finalizarSenhaPorEvento)
+  off('attendants-online-updated', verificarMinhaSenha)
+  off('attendance-config-updated', verificarMinhaSenha)
 })
 
 const retirarSenha = async () => {
@@ -239,7 +249,7 @@ const retirarSenha = async () => {
     const r = await axios.post('/api/senha/publica', { tipo: tipo.value, deviceId: deviceId.value })
     registrarDispositivoSocket()
     senhaRetirada.value = r.data
-    tempoEstimado.value = r.data.tempoEstimadoMinutos || (r.data.pessoasNaFrente || 0) * 5
+    tempoEstimado.value = Number(r.data.tempoEstimadoMinutos) || 0
     salvarEstado()
     iniciarPollingSenha()
   } catch (e) {

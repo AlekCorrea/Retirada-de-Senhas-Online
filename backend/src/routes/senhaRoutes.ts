@@ -51,6 +51,9 @@ router.get("/meu-historico", auth, controller.meuHistorico);
 // listar todas senhas
 router.get("/senhas", admin, controller.listar);
 
+router.get("/config/atendimento", admin, controller.obterConfigAtendimento);
+router.put("/config/atendimento", admin, controller.salvarConfigAtendimento);
+
 // chamar próxima
 router.put("/senha/chamar", admin, controller.chamar);
 
