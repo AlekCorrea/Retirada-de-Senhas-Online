@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: bdsenha_postgres
+    environment:
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bdsenha
+    command: ["postgres", "-c", "timezone=America/Sao_Paulo"]
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - senhas_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: senhas_backend
+    env_file:
+      - ./backend/.env
+    environment:
+      TZ: America/Sao_Paulo
+      DB_TIMEZONE: America/Sao_Paulo
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: bdsenha
+      PORT: 3000
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+    networks:
+      - senhas_network
+    command: npm run dev
+
+  # Frontend Web (build only - output para volume compartilhado)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: senhas_frontend_builder
+    environment:
+      TZ: America/Sao_Paulo
+    volumes:
+      - frontend_dist:/app/dist
+
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: senhas_nginx
+    environment:
+      TZ: America/Sao_Paulo
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - frontend_dist:/usr/share/nginx/html:ro
+    networks:
+      - senhas_network
+
+  # Mobile App Development (Flutter)
+  mobile:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: senhas_mobile_dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mobile:/app
+    networks:
+      - senhas_network
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  frontend_dist:
+
+networks:
+  senhas_network:
+    driver: bridge
