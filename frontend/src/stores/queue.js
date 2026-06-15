@@ -35,8 +35,8 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  const fetchMinhaSenha = async (token) => {
-    loading.value = true
+  const fetchMinhaSenha = async (token, options = {}) => {
+    if (!options.silent) loading.value = true
     error.value = null
     try {
       const deviceId = getDeviceId()
@@ -47,7 +47,7 @@ export const useQueueStore = defineStore('queue', () => {
     } catch (err) {
       error.value = err.message
     } finally {
-      loading.value = false
+      if (!options.silent) loading.value = false
     }
   }
 
@@ -118,8 +118,8 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  const fetchHistoricoSenhas = async (token) => {
-    loading.value = true
+  const fetchHistoricoSenhas = async (token, options = {}) => {
+    if (!options.silent) loading.value = true
     error.value = null
     try {
       const deviceId = getDeviceId()
@@ -131,7 +131,7 @@ export const useQueueStore = defineStore('queue', () => {
       error.value = err.message
       throw err
     } finally {
-      loading.value = false
+      if (!options.silent) loading.value = false
     }
   }
 

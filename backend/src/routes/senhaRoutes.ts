@@ -22,6 +22,12 @@ router.post("/senha/publica", controller.criarPublica);
 // ver minha senha pública (sem login)
 router.get("/minha-senha/publica", controller.minhaSenhaPublica);
 
+// cancelar minha senha pública (sem login, por deviceId)
+router.put("/minha-senha/cancelar/publica", controller.cancelarMinhaSenhaPublica);
+
+// painel local/TV publico (somente leitura)
+router.get("/painel", controller.obterPainelPublico);
+
 /* ==========================================
    CLIENTE
 ========================================== */
@@ -44,6 +50,9 @@ router.get("/meu-historico", auth, controller.meuHistorico);
 
 // listar todas senhas
 router.get("/senhas", admin, controller.listar);
+
+router.get("/config/atendimento", admin, controller.obterConfigAtendimento);
+router.put("/config/atendimento", admin, controller.salvarConfigAtendimento);
 
 // chamar próxima
 router.put("/senha/chamar", admin, controller.chamar);

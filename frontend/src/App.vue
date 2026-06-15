@@ -1,6 +1,6 @@
 <template>
   <div id="app" class="app-container">
-    <nav class="navbar">
+    <nav v-if="!isPainelRoute" class="navbar">
   <div class="navbar-brand">
     <h1>🎫 Senhas Online</h1>
   </div>
@@ -8,11 +8,11 @@
   </div>
     </nav>
 
-    <main class="main-content">
+    <main class="main-content" :class="{ 'painel-content': isPainelRoute }">
       <router-view />
     </main>
 
-    <footer class="footer">
+    <footer v-if="!isPainelRoute" class="footer">
       <p>&copy; 2026 Sistema de Senhas Online para Atendimento</p>
     </footer>
   </div>
@@ -20,15 +20,18 @@
 
 <script>
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 
 export default {
   name: 'App',
   setup() {
     const authStore = useAuthStore()
+    const route = useRoute()
 
     const isLoggedIn = computed(() => authStore.isLoggedIn)
     const isAdmin = computed(() => authStore.isAdmin)
+    const isPainelRoute = computed(() => route.name === 'Painel' || route.path === '/painel')
 
     const logout = () => {
       authStore.logout()
@@ -38,6 +41,7 @@ export default {
     return {
       isLoggedIn,
       isAdmin,
+      isPainelRoute,
       logout
     }
   }
@@ -104,6 +108,12 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   width: 90%;
+}
+
+.main-content.painel-content {
+  max-width: none;
+  width: 100%;
+  margin: 0;
 }
 
 .footer {

@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS atendentes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table: admins (legacy - kept for compatibility)
+-- Table: admins (legacy - no longer used for authentication)
 CREATE TABLE IF NOT EXISTS admins (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
@@ -25,16 +25,19 @@ CREATE TABLE IF NOT EXISTS admins (
 -- Table: senha (passwords/tickets)
 CREATE TABLE IF NOT EXISTS senha (
     id SERIAL PRIMARY KEY,
-    numero VARCHAR(10) UNIQUE NOT NULL,
+    numero VARCHAR(10) NOT NULL,
     tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('normal', 'prioritario')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('esperando', 'chamando', 'atendido', 'cancelado')),
     dispositivo_id VARCHAR(255),
     codigo_verificacao VARCHAR(10),
+    guiche VARCHAR(50),
     atendente_id INTEGER REFERENCES atendentes(id),
+    data_atendimento DATE NOT NULL DEFAULT CURRENT_DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     atendido_em TIMESTAMP,
-    cancelado_em TIMESTAMP
+    cancelado_em TIMESTAMP,
+    UNIQUE (numero, data_atendimento)
 );
 
 -- Table: atendimentos (attendance history)
@@ -60,11 +63,20 @@ CREATE TABLE IF NOT EXISTS usuarios (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table: sistema_config (system settings)
+CREATE TABLE IF NOT EXISTS sistema_config (
+    chave VARCHAR(100) PRIMARY KEY,
+    valor JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_senha_status ON senha(status);
 CREATE INDEX IF NOT EXISTS idx_senha_tipo ON senha(tipo);
 CREATE INDEX IF NOT EXISTS idx_senha_dispositivo ON senha(dispositivo_id);
 CREATE INDEX IF NOT EXISTS idx_senha_numero ON senha(numero);
+CREATE INDEX IF NOT EXISTS idx_senha_data_atendimento ON senha(data_atendimento);
 CREATE INDEX IF NOT EXISTS idx_senha_codigo ON senha(codigo_verificacao);
 CREATE INDEX IF NOT EXISTS idx_atendimentos_senha_id ON atendimentos(senha_id);
 CREATE INDEX IF NOT EXISTS idx_atendimentos_atendente_id ON atendimentos(atendente_id);
@@ -81,10 +93,9 @@ INSERT INTO atendentes (nome, email, senha, perfil, ativo) VALUES
 ('Administrador Padrão', 'admin@senhas.com', 'admin123', 'administrador', true)
 ON CONFLICT (email) DO NOTHING;
 
--- Insert default admin user (legacy - for compatibility)
-INSERT INTO admins (nome, email, senha) VALUES 
-('Administrador', 'admin@senhas.com', 'admin123')
-ON CONFLICT (email) DO NOTHING;
+INSERT INTO sistema_config (chave, valor)
+VALUES ('dias_atendimento', '{"diasAtendimento":[0,1,2,3,4,5,6],"horaInicioEntrega":"08:00","horaInicioAtendimento":"08:00","horaFimAtendimento":"18:00","tempoMedioAtendimentoMinutos":5}'::jsonb)
+ON CONFLICT (chave) DO NOTHING;
 
 -- Create view for queue statistics
 CREATE OR REPLACE VIEW vw_fila_status AS
