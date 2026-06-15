@@ -81,6 +81,21 @@ services:
     networks:
       - senhas_network
 
+  # Mobile App Development (Flutter)
+  mobile:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: senhas_mobile_dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mobile:/app
+    networks:
+      - senhas_network
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:
   frontend_dist:
