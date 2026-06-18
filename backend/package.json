@@ -9,28 +9,34 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch"
   },
-  "keywords": ["senhas", "atendimento", "fila"],
+  "keywords": [
+    "senhas",
+    "atendimento",
+    "fila"
+  ],
   "author": "Alessandra Corrêa, Célia Raizer, Everton Serighelli",
   "license": "ISC",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^7.1.5",
     "express-session": "^1.19.0",
+    "express-validator": "^7.0.0",
+    "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.20.0",
     "socket.io": "^4.8.3",
-    "bcryptjs": "^2.4.3",
-    "express-validator": "^7.0.0",
-    "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.5",
-    "morgan": "^1.10.0"
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14",
     "jest": "^29.7.0",
+    "nodemon": "^3.1.14",
     "supertest": "^6.3.3"
   }
 }
