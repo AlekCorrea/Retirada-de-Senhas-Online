@@ -6,9 +6,12 @@ services:
     image: postgres:15-alpine
     container_name: bdsenha_postgres
     environment:
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: bdsenha
+    command: ["postgres", "-c", "timezone=America/Sao_Paulo"]
     ports:
       - "5432:5432"
     volumes:
@@ -31,6 +34,8 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      TZ: America/Sao_Paulo
+      DB_TIMEZONE: America/Sao_Paulo
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
@@ -53,6 +58,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: senhas_frontend_builder
+    environment:
+      TZ: America/Sao_Paulo
     volumes:
       - frontend_dist:/app/dist
 
@@ -62,6 +69,8 @@ services:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: senhas_nginx
+    environment:
+      TZ: America/Sao_Paulo
     ports:
       - "80:80"
     depends_on:
@@ -71,6 +80,21 @@ services:
       - frontend_dist:/usr/share/nginx/html:ro
     networks:
       - senhas_network
+
+  # Mobile App Development (Flutter)
+  mobile:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: senhas_mobile_dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mobile:/app
+    networks:
+      - senhas_network
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:

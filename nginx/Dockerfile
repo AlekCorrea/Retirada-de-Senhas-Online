@@ -1,5 +1,7 @@
 FROM nginx:alpine
 
+RUN apk add --no-cache tzdata
+
 # Remove default nginx configuration
 RUN rm /etc/nginx/conf.d/default.conf
 

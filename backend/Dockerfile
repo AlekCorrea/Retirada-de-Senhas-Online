@@ -2,11 +2,15 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache tzdata
+
 COPY package*.json ./
 
 RUN npm install
 
 COPY . .
+
+RUN npm run build
 
 EXPOSE 3000
 
