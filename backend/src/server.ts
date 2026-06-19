@@ -16,6 +16,7 @@ const server = http.createServer(app);
 // Importar Socket.IO
 const { initializeSocket } = require("./websocket/socket");
 
+
 // Importar configurações
 require("./config/passport");
 
@@ -79,12 +80,23 @@ const authRoutes = require("./routes/authRoutes");
 const senhaRoutes = require("./routes/senhaRoutes");
 const userRoutes = require("./routes/userRoutes");
 
+
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
+
 // ============================================
 // MIDDLEWARES DE SEGURANÇA
 // ============================================
 
 // Helmet para segurança HTTP
 app.use(helmet());
+
+
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec)
+);
 
 // CORS
 app.use(cors({
