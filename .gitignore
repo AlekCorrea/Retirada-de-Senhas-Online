@@ -47,3 +47,12 @@ Desktop.ini
 .idea/
 *.swp
 *.swo
+
+# Flutter/Dart
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/build/
+mobile/.pub-cache/
+*.iml
