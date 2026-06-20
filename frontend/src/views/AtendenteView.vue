@@ -179,11 +179,23 @@ const formatarData = (d) => {
 
 const carregarFila = async () => {
   try {
-    const r = await axios.get('/api/fila', { headers: { Authorization: `Bearer ${authStore.token}` } })
+    console.log('Buscando fila...')
+
+    const r = await axios.get('/api/fila', {
+      headers: {
+        Authorization: `Bearer ${authStore.token}`
+      }
+    })
+
+    console.log('Resposta da API:', r.data)
+
     fila.value = r.data.senhas || []
     filaStats.value = r.data.stats || {}
     senhaAtual.value = fila.value.find(s => s.status === 'chamando') || null
-  } catch (e) {}
+
+  } catch (e) {
+    console.error('Erro ao carregar fila:', e)
+  }
 }
 
 const chamarProxima = async () => {
@@ -230,7 +242,13 @@ const cancelarSenha = async () => {
 
 const logout = () => { authStore.logout(); router.push('/login') }
 
-const onQueueUpdated = () => { carregarFila() }
+const onQueueUpdated = async () => {
+  console.log('QUEUE UPDATED RECEBIDO')
+
+  await carregarFila()
+
+  console.log('FILA ATUALIZADA:', fila.value)
+}
 
 onMounted(() => {
   if (!authStore.isLoggedIn) { router.push('/login'); return }

@@ -8,8 +8,8 @@ export function useSocket() {
   const connect = () => {
     if (socket.value) return
 
-    socket.value = io(window.location.origin, {
-      transports: ['websocket', 'polling']
+  socket.value = io(import.meta.env.VITE_API_URL, {
+  transports: ['websocket', 'polling']
     })
 
     socket.value.on('connect', () => {
