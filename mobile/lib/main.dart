@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+// ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 
 void main() {
@@ -37,6 +39,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final String apiBaseUrl = 'http://localhost';
+  final List<int> notificacaoMarcosMinutos = const [60, 45, 30, 15, 10, 5];
   late IO.Socket socket;
 
   bool isLoggedIn = false;
@@ -51,6 +54,10 @@ class _MainScreenState extends State<MainScreen> {
   bool senhaFinalizada = false;
   String erro = '';
   String deviceId = 'mobile-device-id-12345';
+  final Map<int, Timer> notificacaoTimers = {};
+  final Set<String> notificacoesEnviadas = {};
+  String? senhaNotificadaNumero;
+  Timer? autoRefreshSenhaTimer;
 
   @override
   void initState() {
@@ -58,6 +65,7 @@ class _MainScreenState extends State<MainScreen> {
     initSocket();
     processarUrlCallbackGoogle();
     verificarMinhaSenha();
+    iniciarAutoRefreshSenha();
   }
 
   void initSocket() {
@@ -78,6 +86,8 @@ class _MainScreenState extends State<MainScreen> {
     socket.on('ticket-called', (data) => handleSenhaUpdate(data));
     socket.on('attendance-finished', (_) => handleSenhaFinalizada());
     socket.on('ticket-cancelled', (_) => handleSenhaFinalizada());
+    socket.on('attendants-online-updated', (_) => verificarMinhaSenha(silent: true));
+    socket.on('attendance-config-updated', (_) => verificarMinhaSenha(silent: true));
   }
 
   void processarUrlCallbackGoogle() {
@@ -119,6 +129,8 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void logout() {
+    cancelarNotificacoesAgendadas(limparHistorico: true);
+    pararAutoRefreshSenha();
     setState(() {
       isLoggedIn = false;
       isGoogleUser = false;
@@ -135,12 +147,18 @@ class _MainScreenState extends State<MainScreen> {
         setState(() {
           senhaAtiva = s;
         });
+        prepararNotificacoesDaSenha(s);
+        if (s['status'] == 'chamando') {
+          notificarSenhaChamada(s);
+        }
       }
     }
     verificarMinhaSenha(silent: true);
   }
 
   void handleSenhaFinalizada() {
+    cancelarNotificacoesAgendadas(limparHistorico: true);
+    pararAutoRefreshSenha();
     setState(() {
       senhaFinalizada = true;
       senhaAtiva = null;
@@ -162,8 +180,8 @@ class _MainScreenState extends State<MainScreen> {
       });
     }
     try {
-      final url = isLoggedIn 
-          ? '$apiBaseUrl/api/minha-senha' 
+      final url = isLoggedIn
+          ? '$apiBaseUrl/api/minha-senha?deviceId=$deviceId'
           : '$apiBaseUrl/api/minha-senha/publica?deviceId=$deviceId';
           
       final headers = <String, String>{};
@@ -182,6 +200,11 @@ class _MainScreenState extends State<MainScreen> {
           setState(() {
             senhaAtiva = data;
           });
+          iniciarAutoRefreshSenha();
+          prepararNotificacoesDaSenha(data);
+          if (data['status'] == 'chamando') {
+            notificarSenhaChamada(data);
+          }
         }
       }
     } catch (e) {
@@ -201,6 +224,7 @@ class _MainScreenState extends State<MainScreen> {
       erro = '';
     });
     try {
+      await solicitarPermissaoNotificacoes();
       final url = isLoggedIn ? '$apiBaseUrl/api/senha' : '$apiBaseUrl/api/senha/publica';
       final headers = <String, String>{'Content-Type': 'application/json'};
       if (isLoggedIn && token != null) {
@@ -210,8 +234,8 @@ class _MainScreenState extends State<MainScreen> {
       final response = await http.post(
         Uri.parse(url),
         headers: headers,
-        body: json.encode(isLoggedIn 
-            ? {'tipo': tipoSelecionado} 
+        body: json.encode(isLoggedIn
+            ? {'tipo': tipoSelecionado, 'deviceId': deviceId}
             : {'tipo': tipoSelecionado, 'deviceId': deviceId}
         ),
       );
@@ -222,6 +246,8 @@ class _MainScreenState extends State<MainScreen> {
           senhaAtiva = data;
           senhaFinalizada = false;
         });
+        iniciarAutoRefreshSenha();
+        prepararNotificacoesDaSenha(data);
       } else {
         final data = json.decode(response.body);
         setState(() {
@@ -249,7 +275,8 @@ class _MainScreenState extends State<MainScreen> {
       if (isLoggedIn) {
         await http.put(
           Uri.parse('$apiBaseUrl/api/minha-senha/cancelar'),
-          headers: {'Authorization': 'Bearer $token'},
+          headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+          body: json.encode({'deviceId': deviceId}),
         );
       } else {
         await http.put(
@@ -272,9 +299,128 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    pararAutoRefreshSenha();
+    cancelarNotificacoesAgendadas();
     socket.disconnect();
     socket.dispose();
     super.dispose();
+  }
+
+  Future<void> solicitarPermissaoNotificacoes() async {
+    if (!html.Notification.supported) return;
+    if (html.Notification.permission == 'default') {
+      await html.Notification.requestPermission();
+    }
+  }
+
+  void iniciarAutoRefreshSenha() {
+    autoRefreshSenhaTimer ??= Timer.periodic(const Duration(seconds: 30), (_) {
+      if (senhaAtiva != null && !senhaFinalizada) {
+        verificarMinhaSenha(silent: true);
+      }
+    });
+  }
+
+  void pararAutoRefreshSenha() {
+    autoRefreshSenhaTimer?.cancel();
+    autoRefreshSenhaTimer = null;
+  }
+
+  bool get notificacoesPermitidas =>
+      html.Notification.supported && html.Notification.permission == 'granted';
+
+  void exibirNotificacao(String titulo, String corpo, String chave) {
+    if (!notificacoesPermitidas || notificacoesEnviadas.contains(chave)) return;
+    notificacoesEnviadas.add(chave);
+    html.Notification(titulo, body: corpo, tag: chave);
+  }
+
+  void prepararNotificacoesDaSenha(Map<String, dynamic> senha) {
+    final numero = senha['numero']?.toString();
+    if (numero == null || numero.isEmpty || senha['status'] == 'cancelado' || senha['status'] == 'atendido') {
+      cancelarNotificacoesAgendadas(limparHistorico: true);
+      return;
+    }
+
+    if (senhaNotificadaNumero != numero) {
+      cancelarNotificacoesAgendadas(limparHistorico: true);
+      senhaNotificadaNumero = numero;
+    }
+
+    if (senha['status'] == 'chamando') {
+      notificarSenhaChamada(senha);
+      return;
+    }
+
+    final previsao = obterPrevisaoAtendimento(senha);
+    if (previsao == null) return;
+
+    cancelarNotificacoesAgendadas();
+    final agora = DateTime.now();
+    for (final marco in notificacaoMarcosMinutos) {
+      final horarioDisparo = previsao.subtract(Duration(minutes: marco));
+      final espera = horarioDisparo.difference(agora);
+      final chave = '$numero-$marco';
+      if (espera.isNegative || notificacoesEnviadas.contains(chave)) continue;
+
+      notificacaoTimers[marco] = Timer(espera, () {
+        exibirNotificacao(
+          'Senha $numero',
+          'Faltam cerca de ${formatarMarcoNotificacao(marco)} para o seu atendimento.',
+          chave,
+        );
+      });
+    }
+  }
+
+  DateTime? obterPrevisaoAtendimento(Map<String, dynamic> senha) {
+    final previsao = senha['previsaoAtendimento'];
+    if (previsao is String && previsao.isNotEmpty) {
+      return DateTime.tryParse(previsao)?.toLocal();
+    }
+
+    final tempoEstimado = senha['tempoEstimadoMinutos'];
+    final minutos = tempoEstimado is num ? tempoEstimado.toDouble() : double.tryParse('${tempoEstimado ?? ''}');
+    if (minutos == null || minutos <= 0) return null;
+
+    return DateTime.now().add(Duration(milliseconds: (minutos * 60000).round()));
+  }
+
+  String formatarHorarioPrevisao(Map<String, dynamic> senha) {
+    final previsao = obterPrevisaoAtendimento(senha);
+    if (previsao == null) return '--:--';
+
+    final hora = previsao.hour.toString().padLeft(2, '0');
+    final minuto = previsao.minute.toString().padLeft(2, '0');
+    return '$hora:$minuto';
+  }
+
+  void notificarSenhaChamada(Map<String, dynamic> senha) {
+    final numero = senha['numero']?.toString();
+    if (numero == null || numero.isEmpty) return;
+
+    cancelarNotificacoesAgendadas();
+    exibirNotificacao(
+      'Senha $numero chamada',
+      'Dirija-se ao ${senha['guiche'] ?? 'guiche indicado'}.',
+      '$numero-chamada',
+    );
+  }
+
+  String formatarMarcoNotificacao(int minutos) {
+    if (minutos == 60) return '1 hora';
+    return '$minutos minutos';
+  }
+
+  void cancelarNotificacoesAgendadas({bool limparHistorico = false}) {
+    for (final timer in notificacaoTimers.values) {
+      timer.cancel();
+    }
+    notificacaoTimers.clear();
+    if (limparHistorico) {
+      notificacoesEnviadas.clear();
+      senhaNotificadaNumero = null;
+    }
   }
 
   // Método para calcular tamanhos responsivos
@@ -667,11 +813,13 @@ class _MainScreenState extends State<MainScreen> {
               Row(
                 children: [
                   Text('👥 ', style: TextStyle(fontSize: infoTextSize)),
-                  Text(
-                    '${senhaAtiva!['pessoasNaFrente'] ?? 0} senha(s) na frente',
-                    style: TextStyle(
-                      color: const Color(0xFF0F1A52), 
-                      fontSize: infoTextSize,
+                  Expanded(
+                    child: Text(
+                      '${senhaAtiva!['pessoasNaFrente'] ?? 0} senha(s) na frente',
+                      style: TextStyle(
+                        color: const Color(0xFF0F1A52),
+                        fontSize: infoTextSize,
+                      ),
                     ),
                   ),
                 ],
@@ -680,11 +828,34 @@ class _MainScreenState extends State<MainScreen> {
               Row(
                 children: [
                   Text('⏱️ ', style: TextStyle(fontSize: infoTextSize)),
-                  Text(
-                    'Tempo estimado: ${senhaAtiva!['tempoEstimadoMinutos'] ?? 0} min',
-                    style: TextStyle(
-                      color: const Color(0xFF0F1A52), 
-                      fontSize: infoTextSize,
+                  Expanded(
+                    child: Text(
+                      'Tempo estimado: ${senhaAtiva!['tempoEstimadoMinutos'] ?? 0} min',
+                      style: TextStyle(
+                        color: const Color(0xFF0F1A52),
+                        fontSize: infoTextSize,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(color: Colors.black12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: infoTextSize + 4,
+                    color: const Color(0xFF0F1A52),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Previsao: ${formatarHorarioPrevisao(senhaAtiva!)}',
+                      style: TextStyle(
+                        color: const Color(0xFF0F1A52),
+                        fontSize: infoTextSize,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
