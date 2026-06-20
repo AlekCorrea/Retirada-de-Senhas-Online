@@ -12,12 +12,52 @@ const admin = require("../middlewares/adminMiddleware");
 // middleware atendente
 const atendente = require("../middlewares/atendenteMiddleware");
 
+/**
+ * @swagger
+ * tags:
+ *   - name: Senhas
+ *     description: Gerenciamento de senhas
+ *
+ *   - name: Admin
+ *     description: Rotas administrativas
+ *
+ *   - name: Fila
+ *     description: Informações da fila
+ */
+
 /* ==========================================
    PÚBLICO - SEM AUTENTICAÇÃO
 ========================================== */
 
+/**
+ * @swagger
+ * /api/senha/publica:
+ *   post:
+ *     summary: Retira uma senha pública sem login
+ *     tags: [Senhas]
+ *
+ *     responses:
+ *       201:
+ *         description: Senha criada com sucesso
+ *
+ *       500:
+ *         description: Erro interno do servidor
+ */
+
 // retirar senha pública (sem login)
 router.post("/senha/publica", controller.criarPublica);
+
+/**
+ * @swagger
+ * /api/minha-senha/publica:
+ *   get:
+ *     summary: Retorna a senha pública atual
+ *     tags: [Senhas]
+ *
+ *     responses:
+ *       200:
+ *         description: Dados da senha pública
+ */
 
 // ver minha senha pública (sem login)
 router.get("/minha-senha/publica", controller.minhaSenhaPublica);
@@ -32,14 +72,83 @@ router.get("/painel", controller.obterPainelPublico);
    CLIENTE
 ========================================== */
 
+/**
+ * @swagger
+ * /api/senha:
+ *   post:
+ *     summary: Retira senha para usuário autenticado
+ *     tags: [Senhas]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     responses:
+ *       201:
+ *         description: Senha criada com sucesso
+ *
+ *       401:
+ *         description: Não autenticado
+ */
+
 // retirar senha (cliente logado Google)
 router.post("/senha", auth, controller.criar);
+
+/**
+ * @swagger
+ * /api/minha-senha:
+ *   get:
+ *     summary: Retorna a senha atual do usuário
+ *     tags: [Senhas]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     responses:
+ *       200:
+ *         description: Dados da senha atual
+ *
+ *       401:
+ *         description: Não autenticado
+ */
 
 // ver posição na fila
 router.get("/minha-senha", auth, controller.minhaSenha);
 
+/**
+ * @swagger
+ * /api/minha-senha/cancelar:
+ *   put:
+ *     summary: Cancela a senha do usuário
+ *     tags: [Senhas]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     responses:
+ *       200:
+ *         description: Senha cancelada
+ *
+ *       401:
+ *         description: Não autenticado
+ */
+
 // cancelar minha senha
 router.put("/minha-senha/cancelar", auth, controller.cancelarMinhaSenha);
+
+/**
+ * @swagger
+ * /api/meu-historico:
+ *   get:
+ *     summary: Retorna histórico de senhas do usuário
+ *     tags: [Senhas]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     responses:
+ *       200:
+ *         description: Histórico retornado
+ */
 
 // histórico de senhas do usuário
 router.get("/meu-historico", auth, controller.meuHistorico);
@@ -48,8 +157,39 @@ router.get("/meu-historico", auth, controller.meuHistorico);
    ADMIN
 ========================================== */
 
+/**
+ * @swagger
+ * /api/senhas:
+ *   get:
+ *     summary: Lista todas as senhas
+ *     tags: [Admin]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     responses:
+ *       200:
+ *         description: Lista retornada com sucesso
+ *
+ *       403:
+ *         description: Acesso negado
+ */
+
 // listar todas senhas
 router.get("/senhas", admin, controller.listar);
+
+/**
+ * @swagger
+ * /api/senha/chamar:
+ *   put:
+ *     summary: Chama a próxima senha da fila
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Próxima senha chamada
+ */
 
 router.get("/config/atendimento", admin, controller.obterConfigAtendimento);
 router.put("/config/atendimento", admin, controller.salvarConfigAtendimento);
@@ -57,8 +197,52 @@ router.put("/config/atendimento", admin, controller.salvarConfigAtendimento);
 // chamar próxima
 router.put("/senha/chamar", admin, controller.chamar);
 
+/**
+ * @swagger
+ * /api/senha/finalizar/{id}:
+ *   put:
+ *     summary: Finaliza uma senha
+ *     tags: [Admin]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *
+ *     responses:
+ *       200:
+ *         description: Senha finalizada
+ */
+
 // finalizar senha
 router.put("/senha/finalizar/:id", admin, controller.finalizar);
+
+/**
+ * @swagger
+ * /api/senha/cancelar/{id}:
+ *   put:
+ *     summary: Cancela uma senha
+ *     tags: [Admin]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *
+ *     responses:
+ *       200:
+ *         description: Senha cancelada
+ */
 
 // cancelar senha
 router.put("/senha/cancelar/:id", admin, controller.cancelar);
@@ -67,14 +251,88 @@ router.put("/senha/cancelar/:id", admin, controller.cancelar);
    ATENDENTE
 ========================================== */
 
+/**
+ * @swagger
+ * /api/fila:
+ *   get:
+ *     summary: Retorna fila com estatísticas
+ *     tags: [Fila]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     responses:
+ *       200:
+ *         description: Dados da fila
+ */
+
 // obter fila com estatísticas
 router.get("/fila", atendente, controller.obterFila);
+
+/**
+ * @swagger
+ * /api/chamar:
+ *   put:
+ *     summary: Chama próxima senha
+ *     tags: [Fila]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     responses:
+ *       200:
+ *         description: Próxima senha chamada
+ */
 
 // chamar próxima (atendente também pode)
 router.put("/chamar", atendente, controller.chamar);
 
+/**
+ * @swagger
+ * /api/finalizar/{id}:
+ *   put:
+ *     summary: Finaliza atendimento
+ *     tags: [Fila]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *
+ *     responses:
+ *       200:
+ *         description: Atendimento finalizado
+ */
+
 // finalizar senha (atendente também pode)
 router.put("/finalizar/:id", atendente, controller.finalizar);
+
+/**
+ * @swagger
+ * /api/cancelar/{id}:
+ *   put:
+ *     summary: Cancela atendimento
+ *     tags: [Fila]
+ *
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *
+ *     responses:
+ *       200:
+ *         description: Atendimento cancelado
+ */
 
 // cancelar senha (atendente também pode)
 router.put("/cancelar/:id", atendente, controller.cancelar);
@@ -82,6 +340,18 @@ router.put("/cancelar/:id", atendente, controller.cancelar);
 /* ==========================================
    PÚBLICO - STATUS DA FILA
 ========================================== */
+
+/**
+ * @swagger
+ * /api/senhas/status:
+ *   get:
+ *     summary: Retorna status público da fila
+ *     tags: [Fila]
+ *
+ *     responses:
+ *       200:
+ *         description: Status da fila retornado
+ */
 
 // status público da fila (sem autenticação)
 router.get("/senhas/status", controller.statusFilaPublica);
