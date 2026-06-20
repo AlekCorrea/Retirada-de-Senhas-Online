@@ -105,13 +105,6 @@ export default {
 
 .main-content {
   flex: 1;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 90%;
-}
-
-.main-content.painel-content {
-  max-width: none;
   width: 100%;
   margin: 0;
 }

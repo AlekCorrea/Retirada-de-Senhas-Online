@@ -93,6 +93,8 @@
         </div>
 
         <button @click="cancelarSenha" class="btn-cancelar">✗ Cancelar Senha</button>
+
+        <div v-if="erro" class="alerta-erro">⚠️ {{ erro }}</div>
       </div>
 
       <!-- Finalizada -->
@@ -199,7 +201,15 @@ const verificarMinhaSenha = async () => {
 const eventoEhDaMinhaSenha = (payload) => {
   const senha = payload?.senha || payload
   if (!senhaRetirada.value || !senha) return false
-  return senha.dispositivo_id === deviceId.value || senha.numero === senhaRetirada.value.numero
+  // Não usar "numero" como critério: números são reaproveitados por dia/tipo
+  // e podem coincidir com a senha de outro dispositivo, causando falsos positivos.
+  if (senha.dispositivo_id && deviceId.value) {
+    return senha.dispositivo_id === deviceId.value
+  }
+  if (senha.id && senhaRetirada.value.id) {
+    return senha.id === senhaRetirada.value.id
+  }
+  return false
 }
 
 const atualizarSenhaPorEvento = async (payload) => {
@@ -260,12 +270,18 @@ const retirarSenha = async () => {
 }
 
 const cancelarSenha = async () => {
+  erro.value = ''
   try {
     await axios.put('/api/minha-senha/cancelar/publica', { deviceId: deviceId.value })
-  } catch (e) {}
-  senhaFinalizada.value = true
-  if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
-  setTimeout(() => limparEstadoSenha(), 5000)
+    senhaFinalizada.value = true
+    if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
+    setTimeout(() => limparEstadoSenha(), 5000)
+  } catch (e) {
+    // Cancelamento falhou de verdade no backend — sincroniza com o estado real
+    // em vez de fingir sucesso.
+    erro.value = e.response?.data?.erro || 'Erro ao cancelar senha. Tente novamente.'
+    await verificarMinhaSenha()
+  }
 }
 
 const loginComGoogle = async () => {
