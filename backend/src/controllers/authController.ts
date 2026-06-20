@@ -99,7 +99,8 @@ exports.callback = (req, res) => {
     );
 
     const senha = req.query.senha;
-    let redirectUrl = `/client?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`;
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:8080";
+    let redirectUrl = `${frontendUrl}/client?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`;
 
     if (senha) {
         redirectUrl += `&senha=${encodeURIComponent(senha)}`;

@@ -277,7 +277,11 @@ const cancelarSenha = async () => {
     try {
       await queueStore.cancelarSenha(authStore.token)
       await finalizarFluxoSenha('Sua senha foi cancelada com sucesso.')
-    } catch (e) {}
+    } catch (e) {
+      // Cancelamento falhou de verdade no backend — sincroniza com o estado real
+      // em vez de fingir sucesso, e mostra o erro pro usuário.
+      await verificarStatusSenha(true)
+    }
   }
 }
 

@@ -36,14 +36,35 @@ const atendente = require("../middlewares/atendenteMiddleware");
  *     summary: Retira uma senha pública sem login
  *     tags: [Senhas]
  *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tipo
+ *             properties:
+ *               tipo:
+ *                 type: string
+ *                 enum:
+ *                   - normal
+ *                   - prioritario
+ *                 example: normal
+ *               deviceId:
+ *                 type: string
+ *                 example: "123e4567-e89b-12d3-a456-426614174000"
+ *
  *     responses:
  *       201:
  *         description: Senha criada com sucesso
  *
+ *       400:
+ *         description: Tipo não informado
+ *
  *       500:
  *         description: Erro interno do servidor
  */
-
 // retirar senha pública (sem login)
 router.post("/senha/publica", controller.criarPublica);
 
@@ -54,16 +75,58 @@ router.post("/senha/publica", controller.criarPublica);
  *     summary: Retorna a senha pública atual
  *     tags: [Senhas]
  *
+ *     parameters:
+ *       - in: query
+ *         name: deviceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do dispositivo do usuário
+ *
  *     responses:
  *       200:
  *         description: Dados da senha pública
+ *       400:
+ *         description: deviceId é obrigatório
  */
-
-// ver minha senha pública (sem login)
 router.get("/minha-senha/publica", controller.minhaSenhaPublica);
+
+/**
+ * @swagger
+ * /api/minha-senha/cancelar/publica:
+ *   put:
+ *     summary: Cancela a senha pública ativa do dispositivo
+ *     tags: [Senhas]
+ *
+ *     parameters:
+ *       - in: query
+ *         name: deviceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do dispositivo do usuário
+ *
+ *     responses:
+ *       200:
+ *         description: Senha cancelada
+ *       404:
+ *         description: Nenhuma senha ativa encontrada
+ */
 
 // cancelar minha senha pública (sem login, por deviceId)
 router.put("/minha-senha/cancelar/publica", controller.cancelarMinhaSenhaPublica);
+
+/**
+ * @swagger
+ * /api/painel:
+ *   get:
+ *     summary: Retorna dados públicos do painel (TV/display)
+ *     tags: [Senhas]
+ *
+ *     responses:
+ *       200:
+ *         description: Dados do painel retornados com sucesso
+ */
 
 // painel local/TV publico (somente leitura)
 router.get("/painel", controller.obterPainelPublico);
@@ -82,10 +145,25 @@ router.get("/painel", controller.obterPainelPublico);
  *     security:
  *       - bearerAuth: []
  *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tipo
+ *             properties:
+ *               tipo:
+ *                 type: string
+ *                 example: normal
+ *               deviceId:
+ *                 type: string
+ *                 example: 123e4567-e89b-12d3-a456-426614174000
+ *
  *     responses:
  *       201:
  *         description: Senha criada com sucesso
- *
  *       401:
  *         description: Não autenticado
  */
@@ -103,12 +181,26 @@ router.post("/senha", auth, controller.criar);
  *     security:
  *       - bearerAuth: []
  *
+ *     parameters:
+ *       - in: query
+ *         name: deviceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do dispositivo do usuário (mesmo usado ao retirar a senha)
+ *
  *     responses:
  *       200:
  *         description: Dados da senha atual
  *
+ *       400:
+ *         description: deviceId é obrigatório
+ *
  *       401:
  *         description: Não autenticado
+ *
+ *       404:
+ *         description: Nenhuma senha ativa encontrada
  */
 
 // ver posição na fila
@@ -124,12 +216,26 @@ router.get("/minha-senha", auth, controller.minhaSenha);
  *     security:
  *       - bearerAuth: []
  *
+ *     parameters:
+ *       - in: query
+ *         name: deviceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do dispositivo do usuário (mesmo usado ao retirar a senha)
+ *
  *     responses:
  *       200:
  *         description: Senha cancelada
  *
+ *       400:
+ *         description: deviceId é obrigatório
+ *
  *       401:
  *         description: Não autenticado
+ *
+ *       404:
+ *         description: Nenhuma senha ativa encontrada
  */
 
 // cancelar minha senha
@@ -145,9 +251,20 @@ router.put("/minha-senha/cancelar", auth, controller.cancelarMinhaSenha);
  *     security:
  *       - bearerAuth: []
  *
+ *     parameters:
+ *       - in: query
+ *         name: deviceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do dispositivo do usuário (mesmo usado ao retirar a senha)
+ *
  *     responses:
  *       200:
  *         description: Histórico retornado
+ *
+ *       400:
+ *         description: deviceId é obrigatório
  */
 
 // histórico de senhas do usuário
@@ -180,6 +297,64 @@ router.get("/senhas", admin, controller.listar);
 
 /**
  * @swagger
+ * /api/config/atendimento:
+ *   get:
+ *     summary: Retorna a configuração de atendimento
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Configuração retornada com sucesso
+ */
+
+router.get("/config/atendimento", admin, controller.obterConfigAtendimento);
+
+/**
+ * @swagger
+ * /api/config/atendimento:
+ *   put:
+ *     summary: Salva a configuração de atendimento
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - diasAtendimento
+ *             properties:
+ *               diasAtendimento:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 example: [1, 2, 3, 4, 5]
+ *               horaInicioEntrega:
+ *                 type: string
+ *                 example: "08:00"
+ *               horaInicioAtendimento:
+ *                 type: string
+ *                 example: "08:00"
+ *               horaFimAtendimento:
+ *                 type: string
+ *                 example: "18:00"
+ *               tempoMedioAtendimentoMinutos:
+ *                 type: integer
+ *                 example: 5
+ *     responses:
+ *       200:
+ *         description: Configuração salva com sucesso
+ *       400:
+ *         description: Dados inválidos
+ */
+
+router.put("/config/atendimento", admin, controller.salvarConfigAtendimento);
+
+/**
+ * @swagger
  * /api/senha/chamar:
  *   put:
  *     summary: Chama a próxima senha da fila
@@ -190,9 +365,6 @@ router.get("/senhas", admin, controller.listar);
  *       200:
  *         description: Próxima senha chamada
  */
-
-router.get("/config/atendimento", admin, controller.obterConfigAtendimento);
-router.put("/config/atendimento", admin, controller.salvarConfigAtendimento);
 
 // chamar próxima
 router.put("/senha/chamar", admin, controller.chamar);

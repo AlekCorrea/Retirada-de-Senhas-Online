@@ -112,7 +112,8 @@ export const useQueueStore = defineStore('queue', () => {
       minhaSenha.value = null
       return response.data
     } catch (err) {
-      error.value = err.message
+      error.value = err.response?.data?.erro || err.message
+      throw err
     } finally {
       loading.value = false
     }
