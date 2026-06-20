@@ -8,8 +8,13 @@ export function useSocket() {
   const connect = () => {
     if (socket.value) return
 
-  socket.value = io(import.meta.env.VITE_API_URL, {
-  transports: ['websocket', 'polling']
+    // Em dev, o frontend roda em outra porta (Vite, ex: 8080) que não tem
+    // servidor WebSocket. Usamos VITE_API_URL se definida, ou a origem do
+    // próprio backend como fallback (mesma porta usada por axios/proxy).
+    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+    socket.value = io(socketUrl, {
+      transports: ['websocket', 'polling']
     })
 
     socket.value.on('connect', () => {

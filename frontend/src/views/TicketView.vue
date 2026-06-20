@@ -186,7 +186,9 @@ const verificarMinhaSenha = async () => {
   if (!deviceId.value || !senhaRetirada.value) return
   try {
     const r = await axios.get(`/api/minha-senha/publica?deviceId=${deviceId.value}`)
+    console.log('[DEBUG verificarMinhaSenha]', { deviceId: deviceId.value, resposta: r.data })
     if (r.data?.mensagem === 'Nenhuma senha ativa encontrada') {
+      console.log('[DEBUG] verificarMinhaSenha vai FINALIZAR a senha local')
       senhaFinalizada.value = true
       clearInterval(intervaloMinhaSenha)
       setTimeout(() => limparEstadoSenha(), 5000)
@@ -195,7 +197,9 @@ const verificarMinhaSenha = async () => {
       tempoEstimado.value = Number(r.data.tempoEstimadoMinutos) || 0
       salvarEstado()
     }
-  } catch (e) {}
+  } catch (e) {
+    console.log('[DEBUG verificarMinhaSenha] ERRO', e)
+  }
 }
 
 const eventoEhDaMinhaSenha = (payload) => {
@@ -225,7 +229,9 @@ const atualizarSenhaPorEvento = async (payload) => {
 }
 
 const finalizarSenhaPorEvento = (payload) => {
+  console.log('[DEBUG finalizarSenhaPorEvento] evento recebido', payload, 'eventoEhDaMinhaSenha?', eventoEhDaMinhaSenha(payload))
   if (!eventoEhDaMinhaSenha(payload)) return
+  console.log('[DEBUG] finalizarSenhaPorEvento VAI FINALIZAR via WebSocket')
   senhaFinalizada.value = true
   if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
   setTimeout(() => limparEstadoSenha(), 5000)
