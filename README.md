@@ -32,4 +32,4 @@ Os arquivos exportados ou usados como referência do Figma estão na pasta [`fig
 
 ## Como navegar
 
-Abra os arquivos `.md` diretamente no editor ou no GitHub. Para o arquivo `.docx`, use Microsoft Word, LibreOffice Writer ou outro leitor compatível. Os materiais na pasta `figma/` podem ser abertos no editor como arquivos de referência; quando houver um link compartilhado do Figma, registre-o nesta seção para facilitar o acesso da equipe.
+Abra os arquivos `.md` diretamente no editor ou no GitHub. Para o arquivo `.docx`, use Microsoft Word, LibreOffice Writer ou outro leitor compatível. Os materiais na pasta `figma/` podem ser abertos no editor como arquivos de referência; https://www.figma.com/design/KSGf5r77BULROEpJnaQmTU/Senhas-Online?node-id=0-1&t=hiyJHnon5cvAbRW8-1
