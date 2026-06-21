@@ -106,7 +106,7 @@ const fazerLogin = async () => {
   background: #F0F3FC;
   border-radius: 25px;
   padding: 48px;
-  max-width: 520px;
+  max-width: clamp(460px, 38vw, 760px);
   width: calc(100% - 40px);
   margin: 60px 20px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.18);

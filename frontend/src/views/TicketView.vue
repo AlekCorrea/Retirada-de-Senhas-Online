@@ -93,8 +93,6 @@
         </div>
 
         <button @click="cancelarSenha" class="btn-cancelar">✗ Cancelar Senha</button>
-
-        <div v-if="erro" class="alerta-erro">⚠️ {{ erro }}</div>
       </div>
 
       <!-- Finalizada -->
@@ -186,9 +184,7 @@ const verificarMinhaSenha = async () => {
   if (!deviceId.value || !senhaRetirada.value) return
   try {
     const r = await axios.get(`/api/minha-senha/publica?deviceId=${deviceId.value}`)
-    console.log('[DEBUG verificarMinhaSenha]', { deviceId: deviceId.value, resposta: r.data })
     if (r.data?.mensagem === 'Nenhuma senha ativa encontrada') {
-      console.log('[DEBUG] verificarMinhaSenha vai FINALIZAR a senha local')
       senhaFinalizada.value = true
       clearInterval(intervaloMinhaSenha)
       setTimeout(() => limparEstadoSenha(), 5000)
@@ -197,23 +193,13 @@ const verificarMinhaSenha = async () => {
       tempoEstimado.value = Number(r.data.tempoEstimadoMinutos) || 0
       salvarEstado()
     }
-  } catch (e) {
-    console.log('[DEBUG verificarMinhaSenha] ERRO', e)
-  }
+  } catch (e) {}
 }
 
 const eventoEhDaMinhaSenha = (payload) => {
   const senha = payload?.senha || payload
   if (!senhaRetirada.value || !senha) return false
-  // Não usar "numero" como critério: números são reaproveitados por dia/tipo
-  // e podem coincidir com a senha de outro dispositivo, causando falsos positivos.
-  if (senha.dispositivo_id && deviceId.value) {
-    return senha.dispositivo_id === deviceId.value
-  }
-  if (senha.id && senhaRetirada.value.id) {
-    return senha.id === senhaRetirada.value.id
-  }
-  return false
+  return senha.dispositivo_id === deviceId.value || senha.numero === senhaRetirada.value.numero
 }
 
 const atualizarSenhaPorEvento = async (payload) => {
@@ -229,9 +215,7 @@ const atualizarSenhaPorEvento = async (payload) => {
 }
 
 const finalizarSenhaPorEvento = (payload) => {
-  console.log('[DEBUG finalizarSenhaPorEvento] evento recebido', payload, 'eventoEhDaMinhaSenha?', eventoEhDaMinhaSenha(payload))
   if (!eventoEhDaMinhaSenha(payload)) return
-  console.log('[DEBUG] finalizarSenhaPorEvento VAI FINALIZAR via WebSocket')
   senhaFinalizada.value = true
   if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
   setTimeout(() => limparEstadoSenha(), 5000)
@@ -276,18 +260,12 @@ const retirarSenha = async () => {
 }
 
 const cancelarSenha = async () => {
-  erro.value = ''
   try {
     await axios.put('/api/minha-senha/cancelar/publica', { deviceId: deviceId.value })
-    senhaFinalizada.value = true
-    if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
-    setTimeout(() => limparEstadoSenha(), 5000)
-  } catch (e) {
-    // Cancelamento falhou de verdade no backend — sincroniza com o estado real
-    // em vez de fingir sucesso.
-    erro.value = e.response?.data?.erro || 'Erro ao cancelar senha. Tente novamente.'
-    await verificarMinhaSenha()
-  }
+  } catch (e) {}
+  senhaFinalizada.value = true
+  if (intervaloMinhaSenha) clearInterval(intervaloMinhaSenha)
+  setTimeout(() => limparEstadoSenha(), 5000)
 }
 
 const loginComGoogle = async () => {
@@ -308,35 +286,38 @@ const loginComGoogle = async () => {
 
 .container-tela {
   min-height: 100vh;
+  min-height: 100dvh;
   background: radial-gradient(ellipse at center, #F0F3FC 0%, #8F9AD2 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 4vw, 40px) clamp(8px, 3vw, 20px);
+  overflow-x: hidden;
 }
-
-
 
 .card-principal {
   background: #F0F3FC;
-  border-radius: 25px;
-  padding: 48px;
-  max-width: 720px;
-  width: calc(100% - 40px);
-  margin: 40px 20px;
+  border-radius: clamp(16px, 4vw, 25px);
+  padding: clamp(24px, 6vw, 48px);
+  max-width: clamp(560px, 50vw, 1000px);
+  width: 100%;
+  margin: 0 auto;
   box-shadow: 0 20px 60px rgba(0,0,0,0.18);
 }
 
-.cabecalho { text-align: center; margin-bottom: 36px; }
+.cabecalho { text-align: center; margin-bottom: clamp(20px, 5vw, 36px); }
 
 .cabecalho h1 {
   font-family: 'Inter', sans-serif;
-  font-size: 2rem;
+  font-size: clamp(1.35rem, 5vw, 2rem);
   font-weight: 700;
   color: #000;
   margin: 0 0 8px;
+  line-height: 1.2;
 }
 
-.subtitulo { color: #555; font-size: 1rem; margin: 0 0 20px; }
+.subtitulo { color: #555; font-size: clamp(0.85rem, 3vw, 1rem); margin: 0 0 20px; }
 
 .btn-google {
   width: 100%;
@@ -375,7 +356,7 @@ const loginComGoogle = async () => {
 
 .secao-formulario h2 {
   font-family: 'Inter', sans-serif;
-  font-size: 2rem;
+  font-size: clamp(1.4rem, 5vw, 2rem);
   font-weight: 400;
   color: #000;
   text-align: center;
@@ -383,22 +364,22 @@ const loginComGoogle = async () => {
 }
 
 .sub-instrucao {
-  font-size: 1.3rem;
+  font-size: clamp(1rem, 3.5vw, 1.3rem);
   color: #000;
   text-align: center;
-  margin: 0 0 32px;
+  margin: 0 0 clamp(20px, 5vw, 32px);
 }
 
 .opcoes-tipo {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 32px;
+  gap: clamp(10px, 3vw, 20px);
+  margin-bottom: clamp(20px, 5vw, 32px);
 }
 
 .opcao-tipo {
-  border-radius: 25px;
-  padding: 32px 20px 20px;
+  border-radius: clamp(16px, 4vw, 25px);
+  padding: clamp(18px, 5vw, 32px) clamp(10px, 3vw, 20px) clamp(14px, 3vw, 20px);
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -407,7 +388,7 @@ const loginComGoogle = async () => {
   justify-content: center;
   gap: 8px;
   position: relative;
-  min-height: 210px;
+  min-height: clamp(150px, 30vw, 210px);
   text-align: center;
 }
 
@@ -424,17 +405,17 @@ const loginComGoogle = async () => {
 .opcao-tipo:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
 .opcao-tipo.selecionado { box-shadow: 0 0 0 3px #fff, 0 8px 24px rgba(0,0,0,0.25); }
 
-.tipo-titulo { font-size: 1.8rem; font-weight: 600; color: #fff; font-family: 'Inter', sans-serif; }
-.tipo-desc { font-size: 0.95rem; color: #F0F3FC; font-weight: 500; }
+.tipo-titulo { font-size: clamp(1.2rem, 4.5vw, 1.8rem); font-weight: 600; color: #fff; font-family: 'Inter', sans-serif; }
+.tipo-desc { font-size: clamp(0.78rem, 2.6vw, 0.95rem); color: #F0F3FC; font-weight: 500; }
 
 .tipo-icone {
   margin-top: auto;
   background: #F0F3FC;
   color: #0F1A52;
   border-radius: 50%;
-  width: 64px;
-  height: 64px;
-  font-size: 2rem;
+  width: clamp(48px, 12vw, 64px);
+  height: clamp(48px, 12vw, 64px);
+  font-size: clamp(1.4rem, 5vw, 2rem);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -445,12 +426,12 @@ const loginComGoogle = async () => {
 
 .btn-retirar {
   width: 100%;
-  padding: 18px;
+  padding: clamp(14px, 4vw, 18px);
   background: #0F1A52;
   color: #fff;
   border: none;
   border-radius: 14px;
-  font-size: 1.2rem;
+  font-size: clamp(1.05rem, 3.5vw, 1.2rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;

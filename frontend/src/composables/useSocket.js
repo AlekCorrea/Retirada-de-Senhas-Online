@@ -8,12 +8,14 @@ export function useSocket() {
   const connect = () => {
     if (socket.value) return
 
-    // Em dev, o frontend roda em outra porta (Vite, ex: 8080) que não tem
-    // servidor WebSocket. Usamos VITE_API_URL se definida, ou a origem do
-    // próprio backend como fallback (mesma porta usada por axios/proxy).
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    // Caminho relativo: funciona tanto em dev (proxy do Vite em /socket.io,
+    // configurado em vite.config.js) quanto em produção (proxy do Nginx em
+    // /socket.io, configurado em nginx/default.conf). Evita hardcode de porta
+    // que quebra dependendo de onde a aplicação está sendo servida.
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin
 
     socket.value = io(socketUrl, {
+      path: '/socket.io',
       transports: ['websocket', 'polling']
     })
 

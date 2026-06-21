@@ -1,4 +1,4 @@
- 
+  http://localhost:3000/api-docs
 
 {
   "email": "admin@senhas.com",

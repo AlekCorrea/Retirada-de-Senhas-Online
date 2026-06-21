@@ -18,7 +18,7 @@
           <span class="card-label">Senha chamada</span>
           <span class="card-status">{{ chamadaAtual ? 'Em atendimento' : 'Aguardando chamada' }}</span>
         </div>
-        <strong class="senha-numero">{{ chamadaAtual?.numero || '--' }}</strong>
+        <strong class="senha-numero" :class="{ vazio: !chamadaAtual }">{{ chamadaAtual?.numero || '— —' }}</strong>
         <div class="card-footer">
           <span class="tipo-pill" :class="chamadaAtual?.tipo || 'vazio'">
             {{ formatarTipo(chamadaAtual?.tipo) }}
@@ -34,7 +34,7 @@
           <span class="card-label">Local</span>
           <span class="card-status">Destino</span>
         </div>
-        <strong class="local-nome">{{ localAtendimento }}</strong>
+        <strong class="local-nome" :class="{ vazio: !localAtendimento }">{{ localAtendimento || '— —' }}</strong>
         <span class="card-hint">Dirija-se ao local indicado</span>
       </article>
     </section>
@@ -99,7 +99,7 @@ let relogio = null
 const localAtendimento = computed(() => {
   if (chamadaAtual.value?.guiche) return chamadaAtual.value.guiche
   const local = route.query.local || route.query.sala || route.query.guiche
-  return local ? String(local) : '--'
+  return local ? String(local) : ''
 })
 
 const horaAtual = computed(() =>
@@ -163,14 +163,14 @@ onUnmounted(() => {
   width: 100vw;
   height: 100vh;
   min-height: 100vh;
-  padding: clamp(14px, 1.6vw, 28px);
+  padding: clamp(28px, 3.4vw, 56px);
   background:
     radial-gradient(circle at 50% 20%, rgba(240, 243, 252, 0.96) 0%, rgba(143, 154, 210, 0.88) 48%, rgba(43, 56, 126, 0.92) 100%);
   color: #0b102f;
   font-family: 'Inter', 'Segoe UI', sans-serif;
   display: grid;
   grid-template-rows: auto minmax(0, 1.1fr) minmax(0, 0.74fr);
-  gap: clamp(14px, 1.4vw, 24px);
+  gap: clamp(22px, 2.4vw, 38px);
   overflow: hidden;
 }
 
@@ -238,7 +238,7 @@ onUnmounted(() => {
 .hero-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.32fr) minmax(300px, 0.68fr);
-  gap: clamp(14px, 1.4vw, 24px);
+  gap: clamp(22px, 2.4vw, 38px);
   min-height: 0;
 }
 
@@ -304,12 +304,26 @@ onUnmounted(() => {
   text-shadow: 0 14px 30px rgba(5, 8, 23, 0.2);
 }
 
+.senha-numero.vazio {
+  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: none;
+  letter-spacing: 0.3em;
+}
+
 .local-nome {
   margin: auto 0 22px;
   font-size: clamp(4rem, 8vw, 8.2rem);
   line-height: 0.95;
   word-break: break-word;
   text-shadow: 0 12px 26px rgba(5, 8, 23, 0.2);
+}
+
+.local-nome.vazio {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: none;
+  letter-spacing: 0.3em;
 }
 
 .card-hint,
@@ -335,7 +349,7 @@ onUnmounted(() => {
 .painel-corpo {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.38fr);
-  gap: clamp(14px, 1.4vw, 24px);
+  gap: clamp(22px, 2.4vw, 38px);
   min-height: 0;
 }
 

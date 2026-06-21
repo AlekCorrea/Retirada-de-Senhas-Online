@@ -1,7 +1,7 @@
 <template>
   <div class="client-container">
 
-    <div class="card-principal">
+    <div class="card-topo">
       <!-- Cabeçalho do card -->
       <div class="card-header">
         <div class="client-profile">
@@ -22,7 +22,7 @@
             <p>Retire sua senha</p>
           </div>
         </div>
-        <button @click="logout" class="btn-sair">Sair</button>
+        <button @click="logout" class="btn-sair">Sair <span class="seta-sair" aria-hidden="true">→</span></button>
       </div>
 
       <div v-if="senhaConcluida" class="secao-finalizada">
@@ -45,28 +45,39 @@
 
       <!-- Formulário para nova senha -->
       <div v-else-if="!senhaDoSistema">
-        <h2 class="escolha-label">Escolha o tipo de atendimento:</h2>
-
         <div class="opcoes-tipo">
-          <label class="opcao-tipo preferencial-card" :class="{ selecionado: tipoSelecionado === 'prioritario' }">
-            <input v-model="tipoSelecionado" type="radio" value="prioritario" />
-            <span class="tipo-titulo">Preferencial</span>
-            <span class="tipo-desc">Idosos, gestantes, PCD</span>
-            <span class="tipo-icone" aria-hidden="true">♿</span>
-          </label>
+          <button
+            type="button"
+            class="opcao-tipo preferencial-card"
+            :disabled="queueStore.loading"
+            @click="criarSenha('prioritario')"
+          >
+            <span class="tipo-texto">
+              <span class="tipo-titulo">Preferencial</span>
+              <span class="tipo-desc">Idosos, gestantes, PCD</span>
+            </span>
+            <span class="btn-pegar-senha">
+              <span v-if="queueStore.loading && tipoCarregando === 'prioritario'" class="spinner"></span>
+              <span v-else>Retirar senha</span>
+            </span>
+          </button>
 
-          <label class="opcao-tipo normal-card" :class="{ selecionado: tipoSelecionado === 'normal' }">
-            <input v-model="tipoSelecionado" type="radio" value="normal" />
-            <span class="tipo-titulo">Normal</span>
-            <span class="tipo-desc">Fila padrão</span>
-            <span class="tipo-icone" aria-hidden="true">👤</span>
-          </label>
+          <button
+            type="button"
+            class="opcao-tipo normal-card"
+            :disabled="queueStore.loading"
+            @click="criarSenha('normal')"
+          >
+            <span class="tipo-texto">
+              <span class="tipo-titulo">Normal</span>
+              <span class="tipo-desc">Fila padrão</span>
+            </span>
+            <span class="btn-pegar-senha">
+              <span v-if="queueStore.loading && tipoCarregando === 'normal'" class="spinner"></span>
+              <span v-else>Retirar senha</span>
+            </span>
+          </button>
         </div>
-
-        <button @click="criarSenha" :disabled="queueStore.loading" class="btn-retirar">
-          <span v-if="queueStore.loading" class="spinner"></span>
-          <span v-else>🎟️ Retirar Senha</span>
-        </button>
 
         <div v-if="queueStore.error" class="alerta-erro">⚠️ {{ queueStore.error }}</div>
       </div>
@@ -99,24 +110,26 @@
           ✗ Cancelar Senha
         </button>
       </div>
+    </div>
 
-      <!-- Histórico -->
-      <div class="historico-section">
-        <h2>Historico de senhas:</h2>
-        <div v-if="historico.length === 0" class="historico-vazio">Nenhuma senha no histórico</div>
-        <div v-else class="historico-lista">
-          <div v-for="senha in historico" :key="senha.id" class="historico-item">
-            <div class="hist-avatar">
-              <div class="hist-avatar-circle"></div>
+    <!-- Histórico -->
+    <div class="card-historico">
+      <h2>Historico de senhas:</h2>
+      <div v-if="historico.length === 0" class="historico-vazio">Nenhuma senha no histórico</div>
+      <div v-else class="historico-lista">
+        <div v-for="senha in historico" :key="senha.id" class="historico-item">
+          <div class="hist-avatar" :class="'hist-avatar-' + senha.tipo" aria-hidden="true">
+            {{ senha.tipo === 'prioritario' ? '★' : '👤' }}
+          </div>
+          <div class="hist-info">
+            <div class="hist-tipo">{{ senha.tipo === 'prioritario' ? 'Preferencial' : 'Normal' }}</div>
+            <div class="hist-meta">
+              <span class="hist-numero">Senha: {{ senha.numero }}</span>
+              <span class="hist-data">| {{ formatarData(senha.created_at) }}</span>
             </div>
-            <div class="hist-info">
-              <div class="hist-tipo">{{ senha.tipo === 'prioritario' ? 'Preferencial' : 'Normal' }}</div>
-              <div class="hist-numero">Senha: {{ senha.numero }}</div>
-              <div class="hist-data">| {{ formatarData(senha.created_at) }}</div>
-            </div>
-            <div class="hist-status" :class="'status-' + senha.status">
-              {{ getStatusLabel(senha.status) }}
-            </div>
+          </div>
+          <div class="hist-status" :class="'status-' + senha.status">
+            {{ getStatusLabel(senha.status) }}
           </div>
         </div>
       </div>
@@ -136,7 +149,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const queueStore = useQueueStore()
 const { connect, registerDevice, on, off } = useSocket()
-const tipoSelecionado = ref('normal')
+const tipoCarregando = ref('')
 const historico = ref([])
 const senhaExistente = ref(null)
 const senhaConcluida = ref(false)
@@ -263,13 +276,17 @@ const carregarHistorico = async (silent = false) => {
   try { historico.value = await queueStore.fetchHistoricoSenhas(authStore.token, { silent }) } catch (e) {}
 }
 
-const criarSenha = async () => {
+const criarSenha = async (tipo) => {
+  tipoCarregando.value = tipo
   try {
-    await queueStore.criarSenha(tipoSelecionado.value, authStore.token)
+    await queueStore.criarSenha(tipo, authStore.token)
     registrarDispositivoSocket()
     if (senhaExistente.value) { senhaExistente.value = null; localStorage.removeItem('senhaExistente') }
     await carregarHistorico()
-  } catch (e) {}
+  } catch (e) {
+  } finally {
+    tipoCarregando.value = ''
+  }
 }
 
 const cancelarSenha = async () => {
@@ -347,15 +364,20 @@ const formatarData = (d) => {
 
 .btn-sair:hover { background: #2B387E; }
 
-.card-principal {
+.seta-sair { display: inline-block; margin-left: 4px; }
+
+.card-topo,
+.card-historico {
   background: #F0F3FC;
   border-radius: 25px;
   padding: 48px;
-  max-width: 780px;
+  max-width: clamp(600px, 54vw, 1040px);
   width: calc(100% - 40px);
-  margin: 40px 20px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.15);
 }
+
+.card-topo { margin: 40px 20px 0; }
+.card-historico { margin: 24px 20px 40px; }
 
 .card-header {
   margin-bottom: 32px;
@@ -426,8 +448,6 @@ const formatarData = (d) => {
 .senha-existente-aviso strong { color: #0F1A52; display: block; margin-bottom: 4px; }
 .senha-existente-aviso p { margin: 0; color: #333; }
 
-.escolha-label { font-size: 1.1rem; color: #0F1A52; margin: 0 0 20px; font-family: 'Inter', sans-serif; }
-
 .opcoes-tipo {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -436,6 +456,7 @@ const formatarData = (d) => {
 }
 
 .opcao-tipo {
+  border: none;
   border-radius: 25px;
   padding: 28px 20px 20px;
   cursor: pointer;
@@ -443,35 +464,35 @@ const formatarData = (d) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 24px;
   position: relative;
   min-height: 200px;
   text-align: center;
+  font-family: 'Inter', sans-serif;
 }
 
-.opcao-tipo input { position: absolute; opacity: 0; }
 .preferencial-card { background: linear-gradient(180deg, #2B387E 0%, #8F9AD2 100%); }
 .normal-card { background: linear-gradient(180deg, #8F9AD2 0%, #2B387E 100%); }
-.opcao-tipo:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
-.opcao-tipo.selecionado { box-shadow: 0 0 0 3px #fff, 0 8px 24px rgba(0,0,0,0.2); }
+.opcao-tipo:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+.opcao-tipo:disabled { opacity: 0.7; cursor: not-allowed; }
 
-.tipo-titulo { font-size: 1.8rem; font-weight: 600; color: #fff; font-family: 'Inter', sans-serif; }
+.tipo-titulo { font-size: 1.8rem; font-weight: 600; color: #fff; }
 .tipo-desc { font-size: 0.95rem; color: #F0F3FC; font-weight: 500; }
+.tipo-texto { display: flex; flex-direction: column; gap: 6px; }
 
-.tipo-icone {
-  background: #F0F3FC;
-  color: #0F1A52;
-  border-radius: 50%;
-  width: 64px;
-  height: 64px;
-  font-size: 2rem;
-  display: inline-flex;
+.btn-pegar-senha {
+  width: 100%;
+  background: #0F1A52;
+  color: #fff;
+  border-radius: 12px;
+  padding: 14px 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  line-height: 1;
-  margin-top: 12px;
+  min-height: 24px;
   box-shadow: 0 6px 14px rgba(15, 26, 82, 0.22);
 }
 
@@ -518,7 +539,9 @@ const formatarData = (d) => {
 }
 
 .tipo-badge {
-  display: inline-block;
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
   padding: 8px 20px;
   border-radius: 20px;
   background: #CCD4FF;
@@ -630,13 +653,7 @@ const formatarData = (d) => {
 }
 
 /* Histórico */
-.historico-section {
-  margin-top: 48px;
-  padding-top: 32px;
-  border-top: 2px solid rgba(0,0,0,0.1);
-}
-
-.historico-section h2 {
+.card-historico h2 {
   font-family: 'Inter', sans-serif;
   font-size: 1.5rem;
   font-weight: 400;
@@ -647,9 +664,6 @@ const formatarData = (d) => {
 .historico-vazio { text-align: center; color: #555; padding: 20px; }
 
 .historico-lista {
-  background: #F0F3FC;
-  border-radius: 20px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -665,18 +679,32 @@ const formatarData = (d) => {
 }
 
 .historico-item:last-child { border-bottom: none; }
-.historico-item:hover { background: rgba(255,255,255,0.5); border-radius: 8px; }
+.historico-item:hover { background: rgba(255,255,255,0.6); border-radius: 8px; }
 
-.hist-avatar-circle {
-  width: 48px; height: 48px;
+.hist-avatar {
+  width: 44px; height: 44px;
   border-radius: 50%;
-  background: #8F9AD2;
+  background: rgba(143, 154, 210, 0.18);
+  color: #0F1A52;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
 }
 
-.hist-info { flex: 1; }
-.hist-tipo { font-size: 1.1rem; font-weight: 400; color: #000; font-family: 'Inter', sans-serif; }
-.hist-numero { font-size: 0.85rem; color: #555; }
+.hist-avatar-prioritario { font-size: 1.4rem; }
+
+.hist-info { flex: 1; min-width: 0; }
+.hist-tipo { font-size: 1.1rem; font-weight: 500; color: #000; font-family: 'Inter', sans-serif; }
+.hist-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hist-numero {
+  font-size: 0.8rem;
+  color: #0F1A52;
+  background: #CCD4FF;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
 .hist-data { font-size: 0.8rem; color: rgba(0,0,0,0.5); }
 
 .hist-status {
@@ -689,7 +717,7 @@ const formatarData = (d) => {
 
 .status-atendido { background: #d8ffde; color: #1a6b2a; }
 .status-cancelado { background: #ffe2c5; color: #8a4a00; }
-.status-esperando { background: #d9d9d9; color: #333; }
+.status-esperando { background: #ffe8cc; color: #92400e; }
 .status-chamando { background: #fee2e2; color: #991b1b; }
 
 .spinner {
@@ -704,8 +732,12 @@ const formatarData = (d) => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 600px) {
-  .card-principal { padding: 28px 20px; margin: 20px 10px; }
-  .card-header { align-items: center; }
+  .card-topo, .card-historico { padding: 28px 20px; }
+  .card-topo { margin: 20px 10px 0; }
+  .card-historico { margin: 16px 10px 20px; }
+  .card-header { align-items: center; flex-direction: column; gap: 16px; }
+  .client-profile { width: 100%; }
+  .btn-sair { align-self: flex-end; }
   .profile-avatar {
     width: 56px;
     height: 56px;
