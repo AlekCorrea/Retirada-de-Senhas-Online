@@ -11,35 +11,20 @@
         </div>
         <div class="topbar-info">
           <span class="topbar-title">Bem vindo Atendente</span>
-          <span class="topbar-sub">{{ authStore.guiche || 'Guiche nao selecionado' }} - Chame a primeira senha</span>
+          <span class="topbar-sub">Chame a primeira senha</span>
         </div>
       </div>
-      <button @click="logout" class="btn-sair">Sair</button>
+      <button @click="logout" class="btn-sair">Sair <span class="seta-sair" aria-hidden="true">→</span></button>
     </header>
 
     <main class="main-content">
       <!-- Senha em atendimento -->
       <section class="card senha-atual-card">
-        <div v-if="senhaAtual" class="senha-atual">
-          <div class="senha-atual-info">
-            <div class="sa-label">Senha em atendimento</div>
-            <div class="sa-tipo-indicador" :class="senhaAtual.tipo">
-              {{ senhaAtual.tipo === 'prioritario' ? 'P' : 'N' }}
-            </div>
-            <div class="sa-dados">
-              <div class="sa-dado">
-                <span class="sa-dado-label">Senha</span>
-                <span class="sa-dado-valor">{{ senhaAtual.numero }}</span>
-              </div>
-              <div class="sa-dado">
-                <span class="sa-dado-label">Código de verificação</span>
-                <span class="sa-dado-valor">{{ senhaAtual.codigo_verificacao }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-else class="sem-senha-atual">
-          <p>Nenhuma senha em atendimento</p>
+        <div class="sa-label">Senha em atendimento</div>
+        <div class="sa-numero" :class="{ vazio: !senhaAtual }">{{ senhaAtual?.numero || '— — — —' }}</div>
+        <div class="sa-codigo-bloco">
+          <div class="sa-codigo-label">Código da senha:</div>
+          <div class="sa-codigo-valor" :class="{ vazio: !senhaAtual }">{{ senhaAtual?.codigo_verificacao || '— — — — — — — —' }}</div>
         </div>
       </section>
 
@@ -47,13 +32,13 @@
       <div class="acoes-grid">
         <button @click="chamarProxima" :disabled="loading" class="btn-acao btn-chamar">
           <span v-if="loading" class="spinner"></span>
-          <span v-else>Chamar senha</span>
+          <span v-else>🔊 Chamar senha</span>
         </button>
         <button @click="cancelarSenha" :disabled="!senhaAtual" class="btn-acao btn-cancelar">
-          Cancelar atendimento
+          🗑️ Cancelar Senha
         </button>
         <button @click="finalizarAtendimento" :disabled="!senhaAtual" class="btn-acao btn-finalizar">
-          Finalizar atendimento
+          Finalizar
         </button>
       </div>
 
@@ -65,44 +50,40 @@
           <div v-if="filaPendenteOrdenada.length === 0" class="fila-vazia">Nenhuma senha pendente</div>
           <div v-else class="fila-lista">
             <div v-for="senha in filaPendenteOrdenada" :key="senha.id" class="fila-item" :class="{ 'item-chamando': senha.status === 'chamando' }">
-              <div class="item-avatar">
-                <div class="item-avatar-circle" :class="senha.tipo">
-                  {{ senha.tipo === 'prioritario' ? 'P' : 'N' }}
-                </div>
+              <div class="item-avatar" :class="'item-avatar-' + senha.tipo" aria-hidden="true">
+                {{ senha.tipo === 'prioritario' ? '★' : '👤' }}
               </div>
               <div class="item-info">
                 <div class="item-tipo">{{ senha.tipo === 'prioritario' ? 'Preferencial' : 'Normal' }}</div>
-                <div class="item-numero">Senha: {{ senha.numero }}</div>
+                <div class="item-meta">
+                  <span class="item-numero">Senha: {{ senha.numero }}</span>
+                  <span class="item-data">{{ formatarData(senha.criado_em || senha.created_at) }}</span>
+                </div>
               </div>
-              <div class="item-extra">
-                <span class="item-status" :class="'status-' + senha.status">{{ getStatusLabel(senha.status) }}</span>
-                <span class="item-data">{{ formatarData(senha.criado_em || senha.created_at) }}</span>
-              </div>
+              <span class="item-status" :class="'status-' + senha.status">{{ getStatusLabel(senha.status) }}</span>
             </div>
           </div>
         </section>
 
-        <!-- Atendidas ou canceladas -->
+        <!-- Já atendidos -->
         <section class="card fila-card">
           <div class="fila-atendida-header">
-            <h2 class="fila-titulo">Atendidas ou canceladas</h2>
+            <h2 class="fila-titulo">Já atendidos</h2>
           </div>
           <div v-if="filaFinalizadaInvertida.length === 0" class="fila-vazia">Nenhuma senha finalizada</div>
           <div v-else class="fila-lista">
             <div v-for="senha in filaFinalizadaInvertida" :key="senha.id" class="fila-item" :class="{ 'item-cancelado': senha.status === 'cancelado' }">
-              <div class="item-avatar">
-                <div class="item-avatar-circle" :class="senha.tipo">
-                  {{ senha.tipo === 'prioritario' ? 'P' : 'N' }}
-                </div>
+              <div class="item-avatar" :class="'item-avatar-' + senha.tipo" aria-hidden="true">
+                {{ senha.tipo === 'prioritario' ? '★' : '👤' }}
               </div>
               <div class="item-info">
                 <div class="item-tipo">{{ senha.tipo === 'prioritario' ? 'Preferencial' : 'Normal' }}</div>
-                <div class="item-numero">Senha: {{ senha.numero }}</div>
+                <div class="item-meta">
+                  <span class="item-numero">Senha: {{ senha.numero }}</span>
+                  <span class="item-data">{{ formatarData(senha.atualizado_em || senha.updated_at) }}</span>
+                </div>
               </div>
-              <div class="item-extra">
-                <span class="item-status" :class="'status-' + senha.status">{{ getStatusLabel(senha.status) }}</span>
-                <span class="item-data">{{ formatarData(senha.atualizado_em || senha.updated_at) }}</span>
-              </div>
+              <span class="item-status" :class="'status-' + senha.status">{{ getStatusLabel(senha.status) }}</span>
             </div>
           </div>
         </section>
@@ -179,23 +160,11 @@ const formatarData = (d) => {
 
 const carregarFila = async () => {
   try {
-    console.log('Buscando fila...')
-
-    const r = await axios.get('/api/fila', {
-      headers: {
-        Authorization: `Bearer ${authStore.token}`
-      }
-    })
-
-    console.log('Resposta da API:', r.data)
-
+    const r = await axios.get('/api/fila', { headers: { Authorization: `Bearer ${authStore.token}` } })
     fila.value = r.data.senhas || []
     filaStats.value = r.data.stats || {}
     senhaAtual.value = fila.value.find(s => s.status === 'chamando') || null
-
-  } catch (e) {
-    console.error('Erro ao carregar fila:', e)
-  }
+  } catch (e) {}
 }
 
 const chamarProxima = async () => {
@@ -242,13 +211,7 @@ const cancelarSenha = async () => {
 
 const logout = () => { authStore.logout(); router.push('/login') }
 
-const onQueueUpdated = async () => {
-  console.log('QUEUE UPDATED RECEBIDO')
-
-  await carregarFila()
-
-  console.log('FILA ATUALIZADA:', fila.value)
-}
+const onQueueUpdated = () => { carregarFila() }
 
 onMounted(() => {
   if (!authStore.isLoggedIn) { router.push('/login'); return }
@@ -326,6 +289,7 @@ onUnmounted(() => {
 }
 
 .btn-sair:hover { background: #2B387E; }
+.seta-sair { display: inline-block; margin-left: 4px; }
 
 /* Main */
 .main-content {
@@ -343,79 +307,59 @@ onUnmounted(() => {
 }
 
 /* Senha atual */
-.senha-atual-card { text-align: center; }
-
-.senha-atual-info {
-  position: relative;
-}
+.senha-atual-card { text-align: center; padding: 40px 24px; }
 
 .sa-label {
   font-family: 'Inter', sans-serif;
   font-size: 1.8rem;
   font-weight: 400;
   color: #000;
-  margin-bottom: 8px;
-  padding: 0 72px;
+  margin-bottom: 18px;
 }
 
-.sa-tipo-indicador {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: #3b82f6;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.sa-numero {
+  font-size: clamp(3rem, 6vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1;
+  color: #0F1A52;
   font-family: 'Inter', sans-serif;
-  font-size: 1.4rem;
-  font-weight: 700;
+  margin-bottom: 24px;
 }
 
-.sa-tipo-indicador.prioritario { background: #ef4444; }
-
-.sa-dados {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: 14px;
+.sa-numero.vazio {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  color: rgba(15, 26, 82, 0.35);
+  letter-spacing: 0.3em;
 }
 
-.sa-dado {
-  background: #CCD4FF;
-  border-radius: 25px;
-  min-height: 170px;
-  padding: 22px 28px;
-  display: flex;
+.sa-codigo-bloco {
+  display: inline-flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.sa-dado-label {
-  font-size: 1.05rem;
-  font-family: 'Inter', sans-serif;
-  color: #000;
-  font-weight: 500;
-}
-
-.sa-dado-valor {
-  font-size: 4.8rem;
-  line-height: 1;
-  font-weight: 700;
-  font-family: 'Inter', sans-serif;
-  color: #000;
-}
-
-.sem-senha-atual {
-  padding: 60px 20px;
+.sa-codigo-label {
+  font-size: 0.95rem;
   color: #555;
-  font-size: 1.2rem;
   font-family: 'Inter', sans-serif;
+}
+
+.sa-codigo-valor {
+  background: #CCD4FF;
+  border-radius: 14px;
+  padding: 10px 28px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #0F1A52;
+  font-family: 'Inter', sans-serif;
+}
+
+.sa-codigo-valor.vazio {
+  color: rgba(15, 26, 82, 0.35);
+  letter-spacing: 0.3em;
+  background: rgba(204, 212, 255, 0.45);
 }
 
 /* Botões de ação */
@@ -442,7 +386,7 @@ onUnmounted(() => {
 
         .btn-chamar { background: #0C56DA; }
         .btn-cancelar { background: #E93A32; }
-        .btn-finalizar { background: #22c55e; }
+        .btn-finalizar { background: #0F1A52; }
 
 /* Filas */
 .filas-grid {
@@ -488,42 +432,39 @@ onUnmounted(() => {
 .item-chamando { background: rgba(59,130,246,0.08); }
 .item-cancelado { background: rgba(239,68,68,0.05); }
 
-.item-avatar-circle {
-  width: 56px; height: 56px;
+.item-avatar {
+  width: 44px; height: 44px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: rgba(143, 154, 210, 0.18);
+  color: #0F1A52;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-family: 'Inter', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.2rem;
 }
 
-.item-avatar-circle.prioritario { background: #ef4444; }
+.item-avatar-prioritario { font-size: 1.3rem; }
 
 .item-info { flex: 1; min-width: 0; }
-.item-tipo { font-size: 1rem; font-weight: 400; color: #000; font-family: 'Inter', sans-serif; }
+.item-tipo { font-size: 1rem; font-weight: 500; color: #000; font-family: 'Inter', sans-serif; }
+
+.item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
 
 .item-numero {
   display: inline-block;
-  background: #FFE2C5;
+  background: #D8FFDE;
   border-radius: 20px;
   padding: 3px 12px;
   font-size: 0.8rem;
-  color: #000;
+  color: #065f46;
   font-family: 'Inter', sans-serif;
-  margin-top: 4px;
 }
 
-.item-extra {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  white-space: nowrap;
+.item-data {
+  font-size: 0.85rem;
+  color: rgba(0,0,0,0.5);
+  font-family: 'Inter', sans-serif;
 }
 
 .item-status {
@@ -534,6 +475,8 @@ onUnmounted(() => {
   font-family: 'Inter', sans-serif;
   background: rgba(0,0,0,0.08);
   color: #555;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .item-status.status-esperando { background: #fef3c7; color: #92400e; }
@@ -580,23 +523,14 @@ onUnmounted(() => {
 @media (max-width: 900px) {
   .filas-grid { grid-template-columns: 1fr; }
   .acoes-grid { grid-template-columns: 1fr; }
-  .sa-dados { grid-template-columns: 1fr; }
-  .sa-dado-valor { font-size: 3.8rem; }
-  .sa-tipo-indicador {
-    width: 52px;
-    height: 52px;
-    font-size: 1.15rem;
-  }
 }
 
 @media (max-width: 600px) {
   .main-content { padding: 16px; }
-  .topbar { margin: 16px 16px 0; padding: 16px; }
+  .topbar { margin: 16px 16px 0; padding: 16px; flex-wrap: wrap; gap: 12px; }
   .topbar-title { font-size: 1.2rem; }
   .avatar-circle { width: 56px; height: 56px; }
-  .sa-label {
-    font-size: 1.35rem;
-    padding: 0 58px;
-  }
+  .sa-label { font-size: 1.35rem; }
+  .senha-atual-card { padding: 28px 16px; }
 }
 </style>
