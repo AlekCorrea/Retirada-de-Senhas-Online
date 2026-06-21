@@ -68,7 +68,7 @@ const salvarUsuarioGoogle = async (profile) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID || "seu_google_client_id_aqui",
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "seu_google_client_secret_aqui",
-    callbackURL: "/auth/google/callback"
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || "http://127.0.0.1/auth/google/callback"
 },
 async (accessToken, refreshToken, profile, done) => {
     try {

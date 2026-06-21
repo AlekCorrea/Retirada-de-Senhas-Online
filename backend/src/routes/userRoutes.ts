@@ -8,7 +8,7 @@ const admin = require('../middlewares/adminMiddleware');
  * @swagger
  * tags:
  *   - name: Usuários
- *     description: Gerenciamento de usuários
+ *     description: Gerenciamento de atendentes e administradores (tabela "atendentes")
  */
 
 /* ==========================================
@@ -56,7 +56,7 @@ router.get('/', admin, userController.listar);
  *               - nome
  *               - email
  *               - senha
- *               - tipo
+ *               - perfil
  *
  *             properties:
  *               nome:
@@ -71,8 +71,11 @@ router.get('/', admin, userController.listar);
  *                 type: string
  *                 example: 123456
  *
- *               tipo:
+ *               perfil:
  *                 type: string
+ *                 enum:
+ *                   - atendente
+ *                   - administrador
  *                 example: atendente
  *
  *     responses:
@@ -112,16 +115,33 @@ router.post('/', admin, userController.criar);
  *             properties:
  *               nome:
  *                 type: string
+ *                 example: João Silva
  *
  *               email:
  *                 type: string
+ *                 example: joao@email.com
  *
- *               tipo:
+ *               senha:
  *                 type: string
+ *                 description: Se informada, redefine a senha do usuário
+ *                 example: novaSenha123
+ *
+ *               perfil:
+ *                 type: string
+ *                 enum:
+ *                   - atendente
+ *                   - administrador
+ *                 example: atendente
  *
  *     responses:
  *       200:
  *         description: Usuário atualizado
+ *
+ *       400:
+ *         description: Dados inválidos ou nenhum campo informado
+ *
+ *       404:
+ *         description: Usuário não encontrado
  */
 
 // Atualizar usuário existente
@@ -147,6 +167,9 @@ router.put('/:id', admin, userController.atualizar);
  *     responses:
  *       200:
  *         description: Usuário desativado
+ *
+ *       404:
+ *         description: Usuário não encontrado
  */
 
 // Desativar (soft delete) usuário

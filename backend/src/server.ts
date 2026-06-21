@@ -99,8 +99,12 @@ app.use(
 );
 
 // CORS
+const corsOrigins = (process.env.CORS_ORIGIN || "*")
+    .split(",")
+    .map((origin) => origin.trim());
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || "*",
+    origin: corsOrigins.includes("*") ? "*" : corsOrigins,
     credentials: true
 }));
 

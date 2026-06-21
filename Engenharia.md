@@ -267,6 +267,19 @@ As rotas de usuarios internos estao em `backend/src/routes/userRoutes.ts` e sao 
 | PUT | `/api/users/:id` | Atualiza usuario interno. |
 | DELETE | `/api/users/:id` | Desativa usuario interno por soft delete. |
 
+### Documentacao Swagger/OpenAPI
+
+A API expoe documentacao interativa via Swagger UI, gerada automaticamente a partir de anotacoes JSDoc (`@swagger`) nos arquivos de rota.
+
+- **Configuracao**: `backend/src/config/swagger.ts`.
+- **Montagem**: `backend/src/server.ts`, rota `/api-docs`.
+- **Fonte das anotacoes**: `backend/src/routes/*.ts` (`authRoutes.ts`, `senhaRoutes.ts`, `userRoutes.ts`).
+- **Acesso**:
+  - Via Docker (nginx, porta 80): `http://127.0.0.1/api-docs` ou `http://localhost/api-docs`.
+  - Via backend direto (dev, sem Docker): `http://localhost:3000/api-docs`.
+
+> Novas rotas devem incluir um bloco `@swagger` correspondente no arquivo de rota; caso contrario, o endpoint funciona normalmente, mas nao aparece na documentacao interativa.
+
 ---
 
 ## Eventos Socket.IO
@@ -406,20 +419,37 @@ docker compose logs
 docker compose build
 ```
 
+> **Atencao:** o `backend/.env` deve ter `FRONTEND_URL` e `CORS_ORIGIN` apontando
+> para `http://127.0.0.1` (porta 80, servida pelo nginx) quando rodando via Docker.
+> Se for rodar o frontend solto via Vite (`npm run dev`, porta 8080), troque essas
+> variaveis para `http://127.0.0.1:8080`. Misturar os dois ambientes e a causa mais
+> comum de falha no login com Google (o backend redireciona para uma porta que nao
+> esta servindo nada).
+
+### URLs de acesso (ambiente Docker)
+
+| Tela | URLs |
+|---|---|
+| Login | `http://localhost` / `http://127.0.0.1` |
+| Atendente | `http://localhost/atendente` / `http://127.0.0.1/atendente` |
+| Admin | `http://localhost/admin` / `http://127.0.0.1/admin` |
+| Painel | `http://localhost/painel` / `http://127.0.0.1/painel` |
+| Documentacao API (Swagger) | `http://localhost/api-docs` (via nginx/Docker) ou `http://localhost:3000/api-docs` (backend direto) |
+
 ### Frontend
 
 ```bash
 cd frontend
-npm.cmd run build
-npm.cmd run dev -- --host 127.0.0.1
+npm run build
+npm run dev -- --host 127.0.0.1
 ```
 
 ### Backend
 
 ```bash
 cd backend
-npm.cmd run build
-npm.cmd run typecheck
+npm run build
+npm run typecheck
 ```
 
 Para checagens pontuais de sintaxe em arquivos TypeScript:
