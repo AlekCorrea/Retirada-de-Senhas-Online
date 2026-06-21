@@ -98,17 +98,25 @@ router.get("/minha-senha/publica", controller.minhaSenhaPublica);
  *     summary: Cancela a senha pública ativa do dispositivo
  *     tags: [Senhas]
  *
- *     parameters:
- *       - in: query
- *         name: deviceId
- *         required: true
- *         schema:
- *           type: string
- *         description: ID do dispositivo do usuário
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - deviceId
+ *             properties:
+ *               deviceId:
+ *                 type: string
+ *                 description: ID do dispositivo do usuário
+ *                 example: "123e4567-e89b-12d3-a456-426614174000"
  *
  *     responses:
  *       200:
  *         description: Senha cancelada
+ *       400:
+ *         description: deviceId é obrigatório
  *       404:
  *         description: Nenhuma senha ativa encontrada
  */
@@ -216,13 +224,19 @@ router.get("/minha-senha", auth, controller.minhaSenha);
  *     security:
  *       - bearerAuth: []
  *
- *     parameters:
- *       - in: query
- *         name: deviceId
- *         required: true
- *         schema:
- *           type: string
- *         description: ID do dispositivo do usuário (mesmo usado ao retirar a senha)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - deviceId
+ *             properties:
+ *               deviceId:
+ *                 type: string
+ *                 description: ID do dispositivo do usuário (mesmo usado ao retirar a senha)
+ *                 example: "123e4567-e89b-12d3-a456-426614174002"
  *
  *     responses:
  *       200:

@@ -1,268 +1,301 @@
-//Swagger UI, direto no backend (porta exposta no docker-compose.yml)
-http://localhost:3000/api-docs
-//Swagger UI, direto no backend (porta exposta no docker-compose.yml)
-http://localhost/api-docs
+# API - Retirada de Senhas Online
 
+Referencia rapida dos endpoints da API, com exemplos reais de payload. Para
+explorar a API de forma interativa (incluindo respostas e schemas completos),
+use o Swagger UI:
+
+| Ambiente | URL |
+|---|---|
+| Via Docker (nginx, porta 80) | `http://localhost/api-docs` ou `http://127.0.0.1/api-docs` |
+| Backend direto (porta exposta no `docker-compose.yml`) | `http://localhost:3000/api-docs` |
+
+> Esta documentacao e mantida manualmente e pode ficar levemente desatualizada.
+> Em caso de duvida sobre o schema exato de um endpoint, o Swagger e a fonte
+> mais confiavel (gerado direto das anotacoes em `backend/src/routes/*.ts`).
+
+---
+
+## Autenticacao
+
+### `POST /auth/login-admin`
+
+Login de administrador por email e senha.
+
+```json
 {
   "email": "admin@senhas.com",
   "senha": "admin123"
 }
+```
 
-POST /api/users Cria novo usuário
+Resposta `200`: `{ "token": "...", "usuario": { ... } }`.
+Resposta `401`: credenciais invalidas.
+
+### `POST /auth/login-atendente`
+
+Login de atendente por email e senha.
+
+```json
+{
+  "email": "atendente@senhas.com",
+  "senha": "senha123"
+}
+```
+
+Mesmo formato de resposta do login-admin.
+
+### `GET /auth/google`
+
+Inicia o login OAuth com Google. Acesse direto no navegador (nao funciona pelo
+"Try it out" do Swagger, pois o fluxo depende de redirect com login externo):
+
+```
+http://127.0.0.1/auth/google
+```
+
+### `GET /auth/google/callback`
+
+Callback chamado pelo Google apos o login. Nao deve ser chamado manualmente.
+
+---
+
+## Senhas - rotas publicas (sem login)
+
+### `POST /api/senha/publica`
+
+Retira uma senha publica, sem autenticacao.
+
+```json
+{
+  "tipo": "normal",
+  "deviceId": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+- `tipo`: `"normal"` ou `"prioritario"`.
+- `deviceId`: opcional; se omitido, o backend gera um novo.
+
+Resposta `201`: senha criada. Resposta `400`: tipo nao informado ou retirada
+bloqueada por regra de horario/dia (ver `RN-16` a `RN-18` no `Engenharia.md`).
+
+### `GET /api/minha-senha/publica`
+
+Retorna a senha publica ativa do dispositivo.
+
+| Parametro | Tipo | Onde | Obrigatorio |
+|---|---|---|---|
+| `deviceId` | string | query | sim |
+
+```
+GET /api/minha-senha/publica?deviceId=123e4567-e89b-12d3-a456-426614174000
+```
+
+### `PUT /api/minha-senha/cancelar/publica`
+
+Cancela a senha publica ativa do dispositivo.
+
+```json
+{
+  "deviceId": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+> O `deviceId` vai no corpo da requisicao (`body`), nao na query string.
+
+### `GET /api/painel`
+
+Dados publicos para o painel de TV. Sem parametros.
+
+### `GET /api/senhas/status`
+
+Estatisticas publicas da fila (contagem por status/tipo). Sem parametros.
+
+---
+
+## Senhas - cliente autenticado (Google OAuth)
+
+Todas as rotas abaixo exigem o header `Authorization: Bearer <token>`,
+obtido apos o login com Google.
+
+### `POST /api/senha`
+
+Cria senha para o cliente autenticado.
+
+```json
+{
+  "tipo": "normal",
+  "deviceId": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+### `GET /api/minha-senha`
+
+Retorna a senha ativa do dispositivo do cliente autenticado.
+
+```
+GET /api/minha-senha?deviceId=123e4567-e89b-12d3-a456-426614174000
+```
+
+### `PUT /api/minha-senha/cancelar`
+
+Cancela a senha ativa do cliente autenticado.
+
+```json
+{
+  "deviceId": "123e4567-e89b-12d3-a456-426614174002"
+}
+```
+
+### `GET /api/meu-historico`
+
+Lista o historico de senhas do dispositivo.
+
+```
+GET /api/meu-historico?deviceId=123e4567-e89b-12d3-a456-426614174000
+```
+
+---
+
+## Fila - atendente
+
+Rotas que exigem `Authorization: Bearer <token>` de um usuario com perfil
+`atendente` (administradores tambem tem acesso).
+
+### `GET /api/fila`
+
+Retorna as senhas do dia e estatisticas da fila. Sem parametros.
+
+### `PUT /api/chamar`
+
+Chama a proxima senha da fila.
+
+```json
+{
+  "guiche": "Guiche 3"
+}
+```
+
+> `guiche` e opcional; se omitido, a senha e chamada sem guiche associado.
+
+### `PUT /api/finalizar/{id}`
+
+Finaliza a senha com o `id` informado no path. Sem corpo.
+
+### `PUT /api/cancelar/{id}`
+
+Cancela a senha com o `id` informado no path. Sem corpo.
+
+---
+
+## Fila - administrador
+
+Rotas que exigem `Authorization: Bearer <token>` de um usuario com perfil
+`administrador`.
+
+### `GET /api/senhas`
+
+Lista todas as senhas do dia. Sem parametros.
+
+### `GET /api/config/atendimento`
+
+Retorna a configuracao atual de dias e horarios de atendimento. Sem parametros.
+
+### `PUT /api/config/atendimento`
+
+Salva a configuracao de atendimento.
+
+```json
+{
+  "diasAtendimento": [1, 2, 3, 4, 5],
+  "horaInicioEntrega": "08:00",
+  "horaInicioAtendimento": "08:00",
+  "horaFimAtendimento": "18:00",
+  "tempoMedioAtendimentoMinutos": 5
+}
+```
+
+- `diasAtendimento`: lista de dias da semana (0 = domingo ... 6 = sabado).
+
+### `PUT /api/senha/chamar`
+
+Equivalente administrativo de `PUT /api/chamar` (mesmo payload, `guiche` opcional).
+
+### `PUT /api/senha/finalizar/{id}`
+
+Equivalente administrativo de `PUT /api/finalizar/{id}`.
+
+### `PUT /api/senha/cancelar/{id}`
+
+Equivalente administrativo de `PUT /api/cancelar/{id}`.
+
+---
+
+## Usuarios internos (administrador)
+
+Rotas que exigem `Authorization: Bearer <token>` de um usuario com perfil
+`administrador`.
+
+### `GET /api/users`
+
+Lista os usuarios internos (atendentes e administradores). Sem parametros.
+
+### `POST /api/users`
+
+Cria um novo usuario interno.
+
+```json
 {
   "nome": "João Silva",
   "email": "joao@email.com",
   "senha": "123456",
   "perfil": "atendente"
 }
+```
 
-PUT /api/users/{id} Atualiza usuário existente
+- `perfil`: `"atendente"` ou `"administrador"`.
+- Todos os campos sao obrigatorios. Resposta `400` se algum estiver ausente
+  ou se `perfil` for invalido.
+
+### `PUT /api/users/{id}`
+
+Atualiza um usuario interno existente. Aceita atualizacao parcial — envie
+apenas os campos que deseja alterar.
+
+```json
 {
   "email": "joaosilva@gmail.com"
 }
+```
 
-PUBLICAR /api /senha /publica Retirar uma senha pública sem login
-{
-  "tipo": "normal",
-  "deviceId": "123e4567-e89b-12d3-a456-426614174000"
-}
+Tambem aceita `nome`, `senha` e `perfil` no mesmo formato. Resposta `404` se
+o `id` nao existir.
 
-GET /api/minha-senha/publica Retorna a senha pública atual
-Name	Description
-deviceId *
-string
-(query)
-ID do dispositivo do usuário
+### `DELETE /api/users/{id}`
 
-123e4567-e89b-12d3-a456-426614174000
+Desativa (soft delete) um usuario interno — define `ativo = false`, sem
+remover o registro do banco. Sem corpo.
 
-//tela login
-http://localhost
-http://127.0.0.1
+---
 
-//tela atendente
-http://localhost/atendente
-http://127.0.0.1/atendente
+## Telas (frontend, ambiente Docker)
 
-tela admin
-http://localhost/admin
-http://127.0.0.1/admin
+Referencia rapida das URLs do frontend, util para QA manual.
 
-tela painel
-http://localhost/painel
-http://127.0.0.1/painel
+| Tela | URLs |
+|---|---|
+| Login | `http://localhost` / `http://127.0.0.1` |
+| Cliente (apos login Google) | `http://localhost/client` / `http://127.0.0.1/client` |
+| Atendente | `http://localhost/atendente` / `http://127.0.0.1/atendente` |
+| Admin | `http://localhost/admin` / `http://127.0.0.1/admin` |
+| Painel | `http://localhost/painel` / `http://127.0.0.1/painel` |
 
-Documentação API
-http://localhost:3000/api-docs
-http://localhost/api-docs
+---
 
+## Usuarios padrao (seed)
 
-PUT
-/api/minha-senha/cancelar/publica
-Cancela a senha pública ativa do dispositivo
+| Perfil | Email | Senha |
+|---|---|---|
+| Atendente | `atendente@senhas.com` | `senha123` |
+| Administrador | `admin@senhas.com` | `admin123` |
 
-Parameters
-Cancel
-Name	Description
-deviceId *
-string
-(query)
-ID do dispositivo do usuário
-
-123e4567-e89b-12d3-a456-426614174000
-Execute
-Clear
-Responses
-Curl
-
-curl -X 'PUT' \
-  'http://localhost:3000/api/minha-senha/cancelar/publica?deviceId=123e4567-e89b-12d3-a456-426614174000' \
-  -H 'accept: */*'
-Request URL
-http://localhost:3000/api/minha-senha/cancelar/publica?deviceId=123e4567-e89b-12d3-a456-426614174000
-Server response
-Code	Details
-500
-Undocumented
-Error: Internal Server Error
-
-Response body
-Download
-{
-  "erro": "Cannot destructure property 'deviceId' of 'req.body' as it is undefined."
-}
-Response headers
- access-control-allow-credentials: true 
- connection: keep-alive 
- content-length: 83 
- content-security-policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests 
- content-type: application/json; charset=utf-8 
- cross-origin-opener-policy: same-origin 
- cross-origin-resource-policy: same-origin 
- date: Sun,21 Jun 2026 17:19:03 GMT 
- etag: W/"53-6RfhE+XdXoeYBKoFDRtxaz1H7to" 
- keep-alive: timeout=5 
- origin-agent-cluster: ?1 
- referrer-policy: no-referrer 
- strict-transport-security: max-age=15552000; includeSubDomains 
- vary: Origin 
- x-content-type-options: nosniff 
- x-dns-prefetch-control: off 
- x-download-options: noopen 
- x-frame-options: SAMEORIGIN 
- x-permitted-cross-domain-policies: none 
- x-xss-protection: 0 
-Responses
-Code	Description	Links
-200	
-Senha cancelada
-
-No links
-404	
-Nenhuma senha ativa encontrada
-
-
-PUT
-/api/minha-senha/cancelar
-Cancela a senha do usuário
-
-
-Parameters
-Cancel
-Name	Description
-deviceId *
-string
-(query)
-ID do dispositivo do usuário (mesmo usado ao retirar a senha)
-
-123e4567-e89b-12d3-a456-426614174002
-Execute
-Clear
-Responses
-Curl
-
-curl -X 'PUT' \
-  'http://localhost:3000/api/minha-senha/cancelar?deviceId=123e4567-e89b-12d3-a456-426614174002' \
-  -H 'accept: */*' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Miwibm9tZSI6IkFkbWluaXN0cmFkb3IgUGFkcsOjbyIsImVtYWlsIjoiYWRtaW5Ac2VuaGFzLmNvbSIsInBlcmZpbCI6ImFkbWluaXN0cmFkb3IiLCJpYXQiOjE3ODIwNjE5NTYsImV4cCI6MTc4MjA5MDc1Nn0.GUPumUQ0D0moFNgVzk31UweDMO5qLi5dVPXmYXRYreY'
-Request URL
-http://localhost:3000/api/minha-senha/cancelar?deviceId=123e4567-e89b-12d3-a456-426614174002
-Server response
-Code	Details
-500
-Undocumented
-Error: Internal Server Error
-
-Response body
-Download
-{
-  "erro": "Cannot destructure property 'deviceId' of 'req.body' as it is undefined."
-}
-Response headers
- access-control-allow-credentials: true 
- connection: keep-alive 
- content-length: 83 
- content-security-policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests 
- content-type: application/json; charset=utf-8 
- cross-origin-opener-policy: same-origin 
- cross-origin-resource-policy: same-origin 
- date: Sun,21 Jun 2026 17:22:47 GMT 
- etag: W/"53-6RfhE+XdXoeYBKoFDRtxaz1H7to" 
- keep-alive: timeout=5 
- origin-agent-cluster: ?1 
- referrer-policy: no-referrer 
- strict-transport-security: max-age=15552000; includeSubDomains 
- vary: Origin 
- x-content-type-options: nosniff 
- x-dns-prefetch-control: off 
- x-download-options: noopen 
- x-frame-options: SAMEORIGIN 
- x-permitted-cross-domain-policies: none 
- x-xss-protection: 0 
-Responses
-Code	Description	Links
-200	
-Senha cancelada
-
-No links
-400	
-deviceId é obrigatório
-
-No links
-401	
-Não autenticado
-
-No links
-404	
-Nenhuma senha ativa encontrada
-
-No links
-
-GET
-/api/meu-historico
-
-GET
-/auth/google
-Login com Google
-
-Parameters
-Cancel
-No parameters
-
-Execute
-Clear
-Responses
-Curl
-
-curl -X 'GET' \
-  'http://localhost:3000/auth/google' \
-  -H 'accept: */*'
-Request URL
-http://localhost:3000/auth/google
-Server response
-Code	Details
-Undocumented
-Failed to fetch.
-Possible Reasons:
-
-CORS
-Network Failure
-URL scheme must be "http" or "https" for CORS request.
-Responses
-Code	Description	Links
-200	
-Redireciona para autenticação Google
-
-No links
-
-GET
-/auth/google/callback
-Callback do login Google
-
-Parameters
-Cancel
-No parameters
-
-Execute
-Clear
-Responses
-Curl
-
-curl -X 'GET' \
-  'http://localhost:3000/auth/google/callback' \
-  -H 'accept: */*'
-Request URL
-http://localhost:3000/auth/google/callback
-Server response
-Code	Details
-Undocumented
-Failed to fetch.
-Possible Reasons:
-
-CORS
-Network Failure
-URL scheme must be "http" or "https" for CORS request.
-Responses
-Code	Description	Links
-200	
-Login realizado com sucesso
+> Trocar essas credenciais antes de qualquer ambiente real/producao.

@@ -61,11 +61,11 @@ router.get("/google/callback", passport.authenticate("google", {
  *             properties:
  *               email:
  *                 type: string
- *                 example: admin@email.com
+ *                 example: admin@senhas.com
  *
  *               senha:
  *                 type: string
- *                 example: 123456
+ *                 example: admin123
  *
  *     responses:
  *       200:
@@ -97,11 +97,11 @@ router.post("/login-admin", authController.loginAdmin);
  *             properties:
  *               email:
  *                 type: string
- *                 example: atendente@email.com
+ *                 example: atendente@senhas.com
  *
  *               senha:
  *                 type: string
- *                 example: 123456
+ *                 example: senha123
  *
  *     responses:
  *       200:
