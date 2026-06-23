@@ -9,10 +9,6 @@ use o Swagger UI:
 | Via Docker (nginx, porta 80) | `http://localhost/api-docs` ou `http://127.0.0.1/api-docs` |
 | Backend direto (porta exposta no `docker-compose.yml`) | `http://localhost:3000/api-docs` |
 
-> Esta documentacao e mantida manualmente e pode ficar levemente desatualizada.
-> Em caso de duvida sobre o schema exato de um endpoint, o Swagger e a fonte
-> mais confiavel (gerado direto das anotacoes em `backend/src/routes/*.ts`).
-
 ---
 
 ## Autenticacao
